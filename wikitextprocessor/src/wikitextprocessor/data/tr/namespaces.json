@@ -1,0 +1,304 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Ortam",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Medya"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Özel",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "T"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Kullanıcı",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "K"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Kullanıcı mesaj",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Vikisözlük",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "VS",
+      "WT",
+      "Wiktionary"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Vikisözlük tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Dosya",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image",
+      "Resim"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Dosya tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Image talk",
+      "Resim tartışma"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "MedyaViki"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "MediaWiki tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "MedyaViki tartışma"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Şablon",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Ş"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Şablon tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Yardım",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Y"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Yardım tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Kategori",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "KAT"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Kategori tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Portal": {
+    "id": 100,
+    "name": "Portal",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "P"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Portal talk": {
+    "id": 101,
+    "name": "Portal tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Reconstruction": {
+    "id": 102,
+    "name": "YeniKurum",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Reconstruction talk": {
+    "id": 103,
+    "name": "YeniKurum tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 104,
+    "name": "Ek",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 105,
+    "name": "Ek tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Citations": {
+    "id": 106,
+    "name": "Alıntılar",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "A"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Citations talk": {
+    "id": 107,
+    "name": "Alıntılar tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Modül",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Modül tartışma",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}

@@ -1,0 +1,10 @@
+# Local Wikipedia runtime data: downloads and generated WTP databases.
+WikiData/*.db
+WikiData/*.db-shm
+WikiData/*.db-wal
+WikiData/current.json
+
+# Local machine configuration and Python caches.
+Wikipedia-Parser-dev/wtp_config.json
+__pycache__/
+*.py[cod]

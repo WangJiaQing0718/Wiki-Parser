@@ -1,0 +1,6 @@
+mwxml
+mwparserfromhell
+pymssql
+tqdm
+sentencex
+-e ../wikitextprocessor

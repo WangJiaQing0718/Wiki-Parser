@@ -1,0 +1,8 @@
+{
+  "current_manifest": "../WikiData/current.json",
+  "lang_code": "en",
+  "project": "wikipedia",
+  "expand_timeout": 15,
+  "read_only": true,
+  "wikidata_offline": true
+}

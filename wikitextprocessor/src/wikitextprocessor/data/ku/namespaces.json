@@ -1,0 +1,343 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Medya",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "میدیا"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Taybet",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "تایبەت"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Gotûbêj",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Nîqaş",
+      "وتووێژ"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Bikarhêner",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "بەکارھێنەر"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Gotûbêja bikarhêner",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Bikarhêner nîqaş",
+      "لێدوانی بەکارھێنەر"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wîkîferheng",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WF",
+      "WT",
+      "Wiktionary"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Gotûbêja Wîkîferhengê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wiktionary talk",
+      "Wîkîferheng gotûbêj",
+      "Wîkîferheng nîqaş"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Wêne",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image",
+      "پەڕگە"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Gotûbêja wêneyî",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Image talk",
+      "Wêne nîqaş",
+      "وتووێژی پەڕگە"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "میدیاویکی"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "Gotûbêja MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "MediaWiki nîqaş",
+      "وتووێژی میدیاویکی"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Şablon",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "داڕێژە"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Gotûbêja şablonê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Şablon nîqaş",
+      "وتووێژی داڕێژە"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Alîkarî",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "یارمەتی"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Gotûbêja alîkariyê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Alîkarî nîqaş",
+      "وتووێژی یارمەتی"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Kategorî",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "پۆل"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Gotûbêja kategoriyê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Kategorî nîqaş",
+      "وتووێژی پۆل"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 100,
+    "name": "Pêvek",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 101,
+    "name": "Gotûbêja pêvekê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Pêvek nîqas"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Nimînok": {
+    "id": 102,
+    "name": "Nimînok",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Gotûbêja nimînokê": {
+    "id": 103,
+    "name": "Gotûbêja nimînokê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Nimînok nîqas"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Portal": {
+    "id": 104,
+    "name": "Portal",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Gotûbêja portalê": {
+    "id": 105,
+    "name": "Gotûbêja portalê",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Portal nîqas"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Tewandin": {
+    "id": 106,
+    "name": "Tewandin",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Gotûbêja tewandinê": {
+    "id": 107,
+    "name": "Gotûbêja tewandinê",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Reconstruction": {
+    "id": 108,
+    "name": "Jinûvesazî",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Reconstruction talk": {
+    "id": 109,
+    "name": "Gotûbêja jinûvesaziyê",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Modul",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Gotûbêja modulê",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}
