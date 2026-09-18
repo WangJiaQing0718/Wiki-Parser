@@ -25,19 +25,19 @@ python3 -m pip install -r requirements.txt
 ## Database Configuration
 
 ```bash
-cp db_config.example.json db_config.json     # fill in host / user / password / database
+cp config.example.json config.json     # fill in SQL Server / WTP / dump settings
 ```
 
-Fields: `host`, `port` (default 1433), `user`, `password`, `database`, `schema` (default `dbo`),
-`table` (raw table name, default `simplewiki_latest`).
+`config.json` has three sections: `source.dump_file`, `sqlserver`, and `wtp`.
+`sqlserver` contains `host`, `port` (default 1433), `user`, `password`, `database`,
+`schema` (default `dbo`), and optionally `table` (raw table name, default
+`simplewiki_latest`). `wtp.db_path` selects the versioned WTP SQLite database.
 
 ## Usage
 
 ```bash
 python3 wikipedia_parser.py \
-  simplewiki-latest-pages-articles.xml.bz2 \
-  --db-config db_config.json \
-  --wtp-config wtp_config.json \
+  --config config.json \
   --workers 8
 ```
 
@@ -45,12 +45,13 @@ To process rows already present in SQL Server (without importing/recompiling a d
 
 ```bash
 python3 wikipedia_parser.py --source-table simplewiki_latest \
-  --db-config db_config.json --wtp-config wtp_config.json --max-pages 1000
+  --config config.json --max-pages 1000
 ```
 
-`wtp_config.json` resolves `WikiData/current.json`, whose `db_path` selects the
-current versioned WTP SQLite DB.  The batch opens it read-only with Wikidata HTTP
-fallback disabled.  Each process owns an independent WTP/Lua context.
+The configured dump is used when no positional dump file is provided. A
+positional dump file overrides `source.dump_file`; `--source-table` uses SQL
+input instead. The WTP database is opened read-only with Wikidata HTTP fallback
+disabled. Each process owns an independent WTP/Lua context.
 
 At runtime, four speed bars refresh in sync -- `Read` (pages read) / `Parse` (parsing) / `Write` (processed table) / `Raw` (raw table):
 
@@ -64,16 +65,15 @@ Raw  : 12000 [00:14, 820 row/s]
 Try processing 100 pages first:
 
 ```bash
-python3 wikipedia_parser.py dump.xml.bz2 --db-config db_config.json --max-pages 100
+python wikipedia_parser.py --config config.json --workers 16 --max-pages 10000
 ```
 
 Parameters:
 
 | Parameter | Default | Description |
 | --- | --- | --- |
-| `dump_file` | one input | Dump path (`*.xml.bz2` or `*.xml`); mutually exclusive with `--source-table` |
-| `--db-config` | required | DB config JSON path |
-| `--wtp-config` | required | WTP DB manifest/config path |
+| `dump_file` | config value | Optional dump path override (`*.xml.bz2` or `*.xml`) |
+| `--config` | required | Unified JSON containing `source`, `sqlserver`, and `wtp` |
 | `--source-table` | off | Existing SQL Server raw source, e.g. `simplewiki_latest` |
 | `--processed-table` | `simplewiki_processed` | Processed table (one row per article; `text_process`) |
 | `--table-prefix` | `wiki_component` | Prefix for the component tables; each type writes to `<prefix>_<type>` |

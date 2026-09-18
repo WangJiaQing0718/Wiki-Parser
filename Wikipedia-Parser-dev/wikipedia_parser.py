@@ -25,14 +25,30 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Callable
 
 # Modules under pipeline/: the XML side (raw writer + streaming batch source) and
 # the processing engine. Put it first on sys.path so a multiprocess-spawn worker
 # can also re-import engine by module name (where process_batch lives).
 sys.path.insert(0, str(Path(__file__).resolve().parent / "pipeline"))
 import engine  # noqa: E402
-from xml_source import SQLServerBatchSource, SQLServerWriter, XmlBatchSource  # noqa: E402
-from wtp_integration import load_wtp_settings  # noqa: E402
+from checkpoint import SQLServerCheckpointStore, source_id_for_path  # noqa: E402
+from pipeline_config import load_pipeline_config, resolve_dump_file  # noqa: E402
+from run_logging import start_run_log  # noqa: E402
+from xml_source import (  # noqa: E402
+    SQLServerBatchSource,
+    SQLServerWriter,
+    SkippingBatchSource,
+    XmlBatchSource,
+)
+
+
+def progress_total_for_source(*, is_xml: bool, max_pages: int | None) -> int | None:
+    """Return a trustworthy percentage denominator for a source type."""
+    # XML's max_pages limits physical <page> elements. Namespace filtering and
+    # logical-resume filtering happen later, so it is not the count processed
+    # by Read/Parse/Write/Raw. Keep those streaming bars count-and-rate only.
+    return None if is_xml else max_pages
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,10 +59,9 @@ def build_parser() -> argparse.ArgumentParser:
         "dump_file", type=Path, nargs="?",
         help="Wikipedia dump path (*.xml.bz2 or *.xml). Omit with --source-table.",
     )
-    p.add_argument("--db-config", type=Path, required=True, help="DB config JSON path.")
     p.add_argument(
-        "--wtp-config", type=Path, required=True,
-        help="WTP config JSON (normally points at WikiData/current.json).",
+        "--config", type=Path, required=True,
+        help="Unified config JSON containing source, sqlserver, and wtp settings.",
     )
     p.add_argument(
         "--source-table", default=None,
@@ -100,24 +115,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="DB query timeout in seconds (reads/writes for both tables); prevents infinite blocking on network jitter / a stalled server; 0 disables. Default 300.",
     )
     p.add_argument("--db-login-timeout", type=float, default=60.0, help="DB connect/login timeout in seconds. Default 60.")
+    p.add_argument(
+        "--resume", action=argparse.BooleanOptionalAction, default=True,
+        help="For XML input, skip terminal revisions recorded in the checkpoint table. Default: enabled.",
+    )
+    p.add_argument(
+        "--retry-errors", action="store_true",
+        help="With XML resume, process completed_with_errors revisions again.",
+    )
+    p.add_argument(
+        "--checkpoint-table", default="simplewiki_parse_checkpoint",
+        help="SQL Server table used for durable XML resume state. Default simplewiki_parse_checkpoint.",
+    )
     return p
 
 
-def main() -> None:
+def _run(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    failure_logger: Callable[[str], None] | None = None,
+) -> None:
     import os
 
-    parser = build_parser()
-    args = parser.parse_args()
+    if not args.config.exists():
+        parser.error(f"--config file does not exist: {args.config}")
+    unified_config = load_pipeline_config(args.config)
+    config = unified_config.sqlserver
+    wtp_settings = unified_config.wtp
+    configured_dump_file = unified_config.dump_file
+
+    dump_file = resolve_dump_file(
+        cli_dump_file=args.dump_file,
+        source_table=args.source_table,
+        configured_dump_file=configured_dump_file,
+    )
 
     # Argument bounds validation: give a friendly error early.
-    if bool(args.dump_file) == bool(args.source_table):
+    if bool(dump_file) == bool(args.source_table):
         parser.error("provide exactly one input: dump_file or --source-table")
-    if args.dump_file is not None and not args.dump_file.exists():
-        parser.error(f"dump file does not exist: {args.dump_file}")
-    if not args.db_config.exists():
-        parser.error(f"--db-config file does not exist: {args.db_config}")
-    if not args.wtp_config.exists():
-        parser.error(f"--wtp-config file does not exist: {args.wtp_config}")
+    if dump_file is not None and not dump_file.exists():
+        parser.error(f"dump file does not exist: {dump_file}")
     if args.workers is not None and args.workers < 1:
         parser.error("--workers must be >= 1 (leave empty for CPU cores by default).")
     if args.chunk_size < 1:
@@ -133,8 +170,6 @@ def main() -> None:
     if args.db_login_timeout < 1:
         parser.error("--db-login-timeout must be >= 1.")
 
-    config = engine.load_config(args.db_config)
-    wtp_settings = load_wtp_settings(args.wtp_config)
     schema = config.get("schema", "dbo")
     workers = args.workers or os.cpu_count() or 4
     # None = all namespaces; default keeps articles only (ns 0).
@@ -143,9 +178,9 @@ def main() -> None:
     # XML imports retain the raw-table fan-out.  A SQL source is already raw
     # data, so it is deliberately not written back to simplewiki_latest.
     raw_writer = None
-    if args.dump_file is not None:
+    if dump_file is not None:
         raw_writer = SQLServerWriter(
-            args.db_config,
+            config,
             batch_size=args.write_batch,
             db_timeout=args.db_timeout,
             login_timeout=args.db_login_timeout,
@@ -179,12 +214,31 @@ def main() -> None:
         sections_writer, paragraphs_writer, wtp_intermediate_writer, sentences_writer,
     )
 
-    if args.dump_file is not None:
+    checkpoint_store = None
+    if dump_file is not None:
         source = XmlBatchSource(
-            args.dump_file, args.chunk_size, max_pages=args.max_pages,
+            dump_file, args.chunk_size, max_pages=args.max_pages,
             namespaces=namespaces,
         )
-        source_name = str(args.dump_file)
+        source_name = str(dump_file)
+        if args.resume:
+            source_id = source_id_for_path(dump_file)
+            checkpoint_store = SQLServerCheckpointStore(
+                config, schema, args.checkpoint_table, source_id,
+                db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+            )
+            terminal_ids = checkpoint_store.load_terminal_ids(
+                retry_errors=args.retry_errors
+            )
+            print(
+                f"Resume: checkpoint_table={args.checkpoint_table}, "
+                f"source_id={source_id[:12]}, loaded_terminal={len(terminal_ids)}, "
+                f"retry_errors={args.retry_errors}"
+            )
+            source = SkippingBatchSource(
+                source,
+                terminal_ids,
+            )
     else:
         source = SQLServerBatchSource(
             config, schema, args.source_table, args.chunk_size,
@@ -193,18 +247,28 @@ def main() -> None:
         )
         source_name = f"{schema}.{args.source_table}"
 
-    articles, parse_failed = engine._run_core(
-        source,
-        sink,
-        workers=workers,
-        total=args.max_pages,  # streaming source: a total is known only when limited
-        raw_writer=raw_writer,
-        task_timeout=args.task_timeout or None,
-        max_count=None,  # limiting is done at the read side via --max-pages
-        key_column=engine.KEY_COLUMN,  # revision_id
-        source_close=source.close,
-        wtp_settings=wtp_settings,
-    )
+    checkpoint = engine.CheckpointCoordinator(checkpoint_store) if checkpoint_store else None
+    try:
+        articles, parse_failed = engine._run_core(
+            source,
+            sink,
+            workers=workers,
+            total=progress_total_for_source(
+                is_xml=dump_file is not None,
+                max_pages=args.max_pages,
+            ),
+            raw_writer=raw_writer,
+            task_timeout=args.task_timeout or None,
+            max_count=None,  # limiting is done at the read side via --max-pages
+            key_column=engine.KEY_COLUMN,  # revision_id
+            source_close=source.close,
+            wtp_settings=wtp_settings,
+            checkpoint=checkpoint,
+            failure_logger=failure_logger,
+        )
+    finally:
+        if checkpoint_store is not None:
+            checkpoint_store.close()
 
     raw_table = config.get("table", "simplewiki_latest")
     counts = component_writer.written
@@ -220,8 +284,25 @@ def main() -> None:
         f"sentences={sentences_writer.written}"
     )
     print(f"  components (rows): {comp_summary}")
+    if checkpoint_store is not None:
+        print(
+            f"  resume: checkpoint_table={args.checkpoint_table}, "
+            f"source_id={checkpoint_store.source_id[:12]}, "
+            f"skipped_terminal={source.skipped}"
+        )
     if parse_failed:
         print(f"WARNING: {parse_failed} articles failed to parse (see [parse-fail] logs above).")
+
+
+def main() -> None:
+    parser = build_parser()
+    session = start_run_log(Path(__file__).resolve().parent / "logs")
+    try:
+        print(f"Log: {session.path}")
+        args = parser.parse_args()
+        _run(args, parser, session.write_parse_failure)
+    finally:
+        session.close()
 
 
 if __name__ == "__main__":

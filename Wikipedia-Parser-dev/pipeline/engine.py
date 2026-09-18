@@ -28,7 +28,6 @@ Design notes: see docs/architecture.md.
 
 from __future__ import annotations
 
-import json
 import queue
 import re
 import threading
@@ -36,7 +35,6 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import mwparserfromhell
@@ -113,6 +111,19 @@ _SKIP_COMPONENT_TOCS = frozenset({
     "external links",
     "footnotes",
 })
+
+# The current WTP pipeline still extracts components from these sections, but
+# their paragraphs are stored as-is after that extraction and never expanded
+# or split into sentences.
+_SKIP_WTP_TOC_ROOTS = _SKIP_COMPONENT_TOCS
+
+
+def should_skip_wtp_for_toc(toc: str | None) -> bool:
+    """Return whether a paragraph toc belongs to a paragraph-only section."""
+    if not toc:
+        return False
+    root = toc.split(":", 1)[0].strip().casefold()
+    return root in _SKIP_WTP_TOC_ROOTS
 
 # These are purely formatting HTML blocks that may appear in raw wikitext.
 # They are removed after component extraction, before paragraph/sentence
@@ -459,14 +470,28 @@ def build_bundle(
             text_process = "\n\n".join(_section_part(section) for section in sections)
             paragraphs = extract_paragraphs(sections, row["page_id"])
 
-            # One page context, then isolated MWP/WTP handling for every paragraph.
-            begin_page(str(row["page_title"]))
+            # Paragraphs under reference/link-like sections are retained after
+            # component extraction, but deliberately bypass MWP/WTP and sentence
+            # segmentation.  Their toc may include a subsection suffix such as
+            # ``References:Books``.
+            wtp_paragraphs = []
             for paragraph in paragraphs:
                 transformed_wikitext = paragraph.text
                 paragraph.raw_wikitext = raw_paragraphs.get(
                     (paragraph.section_no, paragraph.paragraph_no),
                     transformed_wikitext,
                 )
+                paragraph.wtp_skipped = should_skip_wtp_for_toc(paragraph.toc)
+                if paragraph.wtp_skipped:
+                    continue
+                wtp_paragraphs.append(paragraph)
+
+            # One page context, then isolated MWP/WTP handling for each
+            # paragraph that was not skipped above.
+            if wtp_paragraphs:
+                begin_page(str(row["page_title"]))
+            for paragraph in wtp_paragraphs:
+                transformed_wikitext = paragraph.text
                 _template_count, mwp_error = analyze_wikitext(transformed_wikitext)
                 final_text, expanded_wikitext, wtp_error = expand_to_text(
                     transformed_wikitext, expand_timeout
@@ -484,7 +509,7 @@ def build_bundle(
                 else:
                     stats.succeeded += 1
 
-            sentences = extract_sentences(paragraphs, row["page_id"])
+            sentences = extract_sentences(wtp_paragraphs, row["page_id"])
             error = (
                 f"paragraph_errors={stats.failed}; wtp_errors={stats.wtp_errors}"
                 if stats.failed else None
@@ -543,16 +568,6 @@ def process_batch(
 # =========================================================================== #
 # Generic engine (usually no changes needed): config, connection, orchestration.
 # =========================================================================== #
-def load_config(config_path: Path) -> dict[str, Any]:
-    with config_path.open("r", encoding="utf-8") as f:
-        config = json.load(f)
-    required = ["host", "user", "password", "database"]
-    missing = [k for k in required if not config.get(k)]
-    if missing:
-        raise ValueError(f"Missing DB config keys: {', '.join(missing)}")
-    return config
-
-
 def quote_ident(name: str) -> str:
     if not name:
         raise ValueError("Identifier must be non-empty.")
@@ -1069,7 +1084,7 @@ class ParagraphsWriter:
 
 
 class WtpIntermediateWriter:
-    """Persist the WTP boundary for every paragraph, delete-then-insert per revision."""
+    """Persist non-skipped WTP boundaries, delete-then-insert per revision."""
 
     _COLS = (
         "revision_id", "page_id", "page_title", "section_no", "paragraph_no",
@@ -1089,6 +1104,7 @@ class WtpIntermediateWriter:
         self.qualified = qualified_name(schema, table)
         self.object_name = f"{schema}.{table}"
         self._buffer: list[tuple[Any, ...]] = []
+        self._pending_revision_ids: set[Any] = set()
         self.written = 0
         self._conn = connect(
             config, autocommit=False, db_timeout=db_timeout, login_timeout=login_timeout
@@ -1129,7 +1145,10 @@ class WtpIntermediateWriter:
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
         for b in bundles:
+            self._pending_revision_ids.add(b["revision_id"])
             for p in b["paragraphs"]:
+                if p.wtp_skipped:
+                    continue
                 self._buffer.append(
                     (b["revision_id"], b["page_id"], b["page_title"],
                      p.section_no, p.paragraph_no, p.toc, p.wtp_input,
@@ -1139,14 +1158,18 @@ class WtpIntermediateWriter:
             self.flush()
 
     def flush(self) -> None:
-        if not self._buffer:
+        if not self._buffer and not self._pending_revision_ids:
             return
         try:
-            _delete_by_revision_ids(self._conn, self.qualified, self._buffer)
-            _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
+            _delete_by_keys(
+                self._conn, self.qualified, "revision_id", set(self._pending_revision_ids)
+            )
+            if self._buffer:
+                _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
             self._conn.commit()
             self.written += len(self._buffer)
             self._buffer.clear()
+            self._pending_revision_ids.clear()
         except Exception:
             self._conn.rollback()
             raise
@@ -1175,6 +1198,7 @@ class SentencesWriter:
         self.qualified = qualified_name(schema, table)
         self.object_name = f"{schema}.{table}"
         self._buffer: list[tuple[Any, ...]] = []
+        self._pending_revision_ids: set[Any] = set()
         self.written = 0
         self._conn = connect(
             config, autocommit=False, db_timeout=db_timeout, login_timeout=login_timeout
@@ -1209,6 +1233,7 @@ class SentencesWriter:
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
         for b in bundles:
+            self._pending_revision_ids.add(b["revision_id"])
             for s in b["sentences"]:
                 self._buffer.append(
                     (b["revision_id"], b["page_id"], b["page_title"],
@@ -1219,16 +1244,18 @@ class SentencesWriter:
             self.flush()
 
     def flush(self) -> None:
-        if not self._buffer:
+        if not self._buffer and not self._pending_revision_ids:
             return
         try:
-            # Delete-then-insert, one transaction: the delete targets exactly
-            # the revisions being re-inserted below.
-            _delete_by_revision_ids(self._conn, self.qualified, self._buffer)
-            _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
+            _delete_by_keys(
+                self._conn, self.qualified, "revision_id", set(self._pending_revision_ids)
+            )
+            if self._buffer:
+                _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
             self._conn.commit()
             self.written += len(self._buffer)
             self._buffer.clear()
+            self._pending_revision_ids.clear()
         except Exception:
             self._conn.rollback()
             raise
@@ -1249,6 +1276,10 @@ class FanoutWriter:
         for w in self._writers:
             w.add_rows(bundles)
 
+    def flush(self) -> None:
+        for w in self._writers:
+            w.flush()
+
     def close(self) -> None:
         first_err: BaseException | None = None
         for w in self._writers:  # close every sink even if one fails
@@ -1259,6 +1290,36 @@ class FanoutWriter:
                     first_err = exc
         if first_err is not None:
             raise first_err
+
+
+class CheckpointCoordinator:
+    """Mark a batch terminal only after raw and processed outputs both commit."""
+
+    def __init__(self, store: Any) -> None:
+        self._store = store
+        self._lock = threading.Lock()
+        self._raw_committed: set[int] = set()
+        self._processed_committed: dict[int, list[dict[str, Any]]] = {}
+
+    def raw_committed(self, batch_id: int) -> None:
+        with self._lock:
+            self._raw_committed.add(batch_id)
+            self._mark_if_ready(batch_id)
+
+    def processed_committed(
+        self, batch_id: int, bundles: list[dict[str, Any]]
+    ) -> None:
+        with self._lock:
+            self._processed_committed[batch_id] = bundles
+            self._mark_if_ready(batch_id)
+
+    def _mark_if_ready(self, batch_id: int) -> None:
+        bundles = self._processed_committed.get(batch_id)
+        if batch_id not in self._raw_committed or bundles is None:
+            return
+        self._store.mark_terminal(bundles)
+        self._raw_committed.remove(batch_id)
+        del self._processed_committed[batch_id]
 
 
 # --------------------------------------------------------------------------- #
@@ -1287,6 +1348,8 @@ def _run_core(
     key_column: str = KEY_COLUMN,
     source_close: Callable[[], None] = lambda: None,
     wtp_settings: Mapping[str, Any] | None = None,
+    checkpoint: CheckpointCoordinator | None = None,
+    failure_logger: Callable[[str], None] | None = None,
 ) -> tuple[int, int]:
     """Generic pipeline core: batch source -> multiprocess parse -> write processed table, optionally writing the raw table too (fan-out).
 
@@ -1298,8 +1361,11 @@ def _run_core(
     raw_writer: optional. Raw-record writer (add_rows / close), a second output path parallel to parsing.
     total: progress-bar total; pass None for a streaming source of unknown size (shows count + rate only).
     source_close: close the batch source (file stream, etc.).
+    checkpoint: optional two-writer commit barrier for XML resume state.
     Returns (rows written to processed table, parse-failure rows).
     """
+    if checkpoint is not None and raw_writer is None:
+        raise ValueError("A checkpoint requires a raw writer acknowledgement.")
     # Independent speed bars: Read / Parse / Write (+ Raw when raw writing is enabled).
     bar_read = tqdm(total=total, desc="Read ", unit="row", position=0)
     bar_parse = tqdm(total=total, desc="Parse", unit="row", position=1)
@@ -1365,6 +1431,7 @@ def _run_core(
 
     def reader_loop() -> None:
         submitted = 0
+        next_batch_id = 0
         try:
             for batch in batches:
                 if stop.is_set():
@@ -1375,6 +1442,8 @@ def _run_core(
                         break
                     if len(batch) > remaining:
                         batch = batch[:remaining]
+                batch_id = next_batch_id
+                next_batch_id += 1
                 expand_timeout = float(
                     wtp_settings.get("expand_timeout", 15.0)
                     if wtp_settings else 15.0
@@ -1383,9 +1452,9 @@ def _run_core(
                 # Attach this batch's keys to the future (lightweight), to locate problem data on timeout.
                 keys = [row[key_column] for row in batch]
                 # Fan-out: the same batch is both written to the raw table (if enabled) and sent to the pool to parse.
-                if raw_q is not None and not safe_put(raw_q, batch):
+                if raw_q is not None and not safe_put(raw_q, (batch_id, batch)):
                     break
-                if not safe_put(futures_q, (fut, keys)):
+                if not safe_put(futures_q, (fut, keys, batch_id)):
                     break
                 bar_read.update(len(batch))
                 submitted += len(batch)
@@ -1418,7 +1487,7 @@ def _run_core(
                 item = safe_get(futures_q)
                 if item is _SENTINEL:
                     break
-                fut, keys = item
+                fut, keys, batch_id = item
                 try:
                     result = wait_result(fut)  # BatchResult / _SENTINEL (stop)
                 except FuturesTimeout:
@@ -1444,12 +1513,15 @@ def _run_core(
                     failed_total += len(result.failures)
                     bar_parse.set_postfix(failed=failed_total, refresh=False)
                     for key, err in result.failures:
+                        line = f"[parse-fail] {key_column}={key}: {err}"
+                        if failure_logger is not None:
+                            failure_logger(line)
                         if logged < LOG_LIMIT:
-                            tqdm.write(f"[parse-fail] {key_column}={key}: {err}")
+                            tqdm.write(line)
                             logged += 1
                             if logged == LOG_LIMIT:
                                 tqdm.write("[parse-fail] ... further failures not printed individually; see the final summary for the total.")
-                if not safe_put(write_q, result.records):
+                if not safe_put(write_q, (batch_id, result.records)):
                     break
         except BaseException as exc:  # noqa: BLE001
             fail(exc)
@@ -1462,8 +1534,12 @@ def _run_core(
                 item = safe_get(write_q)
                 if item is _SENTINEL:
                     break
-                processed_writer.add_rows(item)
-                bar_write.update(len(item))
+                batch_id, records = item
+                processed_writer.add_rows(records)
+                if checkpoint is not None:
+                    processed_writer.flush()
+                    checkpoint.processed_committed(batch_id, records)
+                bar_write.update(len(records))
         except BaseException as exc:  # noqa: BLE001
             fail(exc)
 
@@ -1473,8 +1549,12 @@ def _run_core(
                 item = safe_get(raw_q)
                 if item is _SENTINEL:
                     break
-                raw_writer.add_rows(item)
-                bar_raw.update(len(item))
+                batch_id, records = item
+                raw_writer.add_rows(records)
+                if checkpoint is not None:
+                    raw_writer.flush()
+                    checkpoint.raw_committed(batch_id)
+                bar_raw.update(len(records))
         except BaseException as exc:  # noqa: BLE001
             fail(exc)
 

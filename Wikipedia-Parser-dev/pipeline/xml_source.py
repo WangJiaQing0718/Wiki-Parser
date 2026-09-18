@@ -13,7 +13,6 @@ component tables are defined by engine.ComponentWriter.
 from __future__ import annotations
 
 import bz2
-import json
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -94,6 +93,28 @@ class XmlBatchSource:
             self._stream.close()
 
 
+class SkippingBatchSource:
+    """Filter terminal revisions while leaving an underlying stream sequential."""
+
+    def __init__(self, source: Any, terminal_revision_ids: set[int]) -> None:
+        self.source = source
+        self.terminal_revision_ids = terminal_revision_ids
+        self.skipped = 0
+
+    def __iter__(self) -> Iterator[list[dict[str, Any]]]:
+        for batch in self.source:
+            remaining = [
+                row for row in batch
+                if int(row["revision_id"]) not in self.terminal_revision_ids
+            ]
+            self.skipped += len(batch) - len(remaining)
+            if remaining:
+                yield remaining
+
+    def close(self) -> None:
+        self.source.close()
+
+
 class SQLServerBatchSource:
     """Read existing ``simplewiki_latest`` rows in batches without reimporting XML."""
 
@@ -170,12 +191,11 @@ class SQLServerWriter:
 
     def __init__(
         self,
-        config_path: Path,
+        config: dict[str, Any],
         batch_size: int = 500,
         db_timeout: float = 0.0,
         login_timeout: float = 60.0,
     ) -> None:
-        config = self._load_config(config_path)
         self.schema = config.get("schema", "dbo")
         # `or` (not .get default) so an explicit null "table" in the JSON also falls back.
         self.table = config.get("table") or "simplewiki_latest"
@@ -201,16 +221,6 @@ class SQLServerWriter:
             login_timeout=int(login_timeout),
         )
         self._create_table_if_not_exists()
-
-    @staticmethod
-    def _load_config(config_path: Path) -> dict[str, Any]:
-        with config_path.open("r", encoding="utf-8") as f:
-            config = json.load(f)
-        required_keys = ["host", "user", "password", "database"]
-        missing_keys = [k for k in required_keys if not config.get(k)]
-        if missing_keys:
-            raise ValueError(f"Missing DB config keys: {', '.join(missing_keys)}")
-        return config
 
     @staticmethod
     def _quote_ident(name: str) -> str:

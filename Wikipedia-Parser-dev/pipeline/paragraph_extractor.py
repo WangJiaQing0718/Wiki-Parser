@@ -33,6 +33,9 @@ class Paragraph:
     wtp_input: str | None = None
     expanded_wikitext: str | None = None
     parse_error: str | None = None
+    # True for selected reference/link-like sections that are stored only in
+    # the paragraph table after component extraction.
+    wtp_skipped: bool = False
 
 
 # 空行中允许出现空格或 Tab。前后查找用于避免把一个 CRLF

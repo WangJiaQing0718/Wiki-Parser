@@ -8,7 +8,6 @@ batch or change the data asset.
 from __future__ import annotations
 
 import html
-import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -25,27 +24,15 @@ def _resolve_path(value: str, base: Path) -> Path:
     return (base / path).resolve() if not path.is_absolute() else path.resolve()
 
 
-def load_wtp_settings(config_path: Path) -> dict[str, Any]:
-    """Load a direct DB path or a ``current.json`` manifest without hardcoding it."""
-    with config_path.open("r", encoding="utf-8") as f:
-        config = json.load(f)
-
-    manifest_path = config.get("current_manifest")
-    if manifest_path:
-        manifest_file = _resolve_path(str(manifest_path), config_path.parent)
-        with manifest_file.open("r", encoding="utf-8") as f:
-            manifest = json.load(f)
-        db_value = manifest.get("db_path") or manifest.get("db")
-        db_base = manifest_file.parent
-    else:
-        db_value = config.get("db_path") or config.get("db")
-        db_base = config_path.parent
+def load_wtp_settings(
+    config: Mapping[str, Any], config_base: Path
+) -> dict[str, Any]:
+    """Resolve WTP settings from the ``wtp`` section of the unified config."""
+    db_value = config.get("db_path")
     if not db_value:
-        raise ValueError(
-            "WTP config must contain db_path or current_manifest -> db_path"
-        )
+        raise ValueError("Missing wtp config key: db_path")
 
-    db_path = _resolve_path(str(db_value), db_base)
+    db_path = _resolve_path(str(db_value), config_base)
     if not db_path.is_file():
         raise FileNotFoundError(f"Configured WTP DB does not exist: {db_path}")
     return {

@@ -1,8 +1,0 @@
-{
-  "host": "10.0.0.10",
-  "port": 1433,
-  "user": "sa",
-  "password": "CHANGE_ME",
-  "database": "wiki",
-  "schema": "dbo"
-}

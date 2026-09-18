@@ -224,7 +224,7 @@ DB_CONFIG = {
     "port": 1433,
     "user": "sa",
     "password": "Wang342688",
-    "database": "Dev0917",
+    "database": "simplewiki",
     "schema": "dbo",
 }
 

@@ -5,6 +5,7 @@ WikiData/*.db-wal
 WikiData/current.json
 
 # Local machine configuration and Python caches.
-Wikipedia-Parser-dev/wtp_config.json
+Wikipedia-Parser-dev/config.json
+Wikipedia-Parser-dev/logs/
 __pycache__/
 *.py[cod]
