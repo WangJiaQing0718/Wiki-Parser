@@ -1,4 +1,4 @@
-"""Regression tests for logical XML resume checkpoints."""
+"""回归测试覆盖逻辑 XML 恢复检查点。"""
 
 from __future__ import annotations
 

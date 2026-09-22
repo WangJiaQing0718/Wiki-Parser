@@ -1,7 +1,14 @@
+import logging
+import time
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .core import Wtp
+
+
+logger = logging.getLogger(__name__)
+INTERWIKI_REQUEST_ATTEMPTS = 3
+INTERWIKI_REQUEST_TIMEOUT = 30
 
 
 def get_interwiki_data(wtp: "Wtp") -> list[dict[str, Union[str, bool]]]:
@@ -9,20 +16,46 @@ def get_interwiki_data(wtp: "Wtp") -> list[dict[str, Union[str, bool]]]:
 
     from .wikidata import get_user_agent
 
-    r = requests.get(
-        f"https://{wtp.lang_code}.{wtp.project}.org/w/api.php",
-        params={  # type: ignore
+    request_kwargs = {
+        "params": {  # type: ignore
             "action": "query",
             "meta": "siteinfo",
             "siprop": "interwikimap",
             "format": "json",
             "formatversion": 2,
         },
-        headers={"user-agent": get_user_agent()},
-    )
-    if r.ok:
-        results = r.json()
-        return results.get("query", {}).get("interwikimap", [])
+        "headers": {"user-agent": get_user_agent()},
+        "timeout": INTERWIKI_REQUEST_TIMEOUT,
+    }
+    url = f"https://{wtp.lang_code}.{wtp.project}.org/w/api.php"
+
+    for attempt in range(INTERWIKI_REQUEST_ATTEMPTS):
+        try:
+            response = requests.get(url, **request_kwargs)
+        except requests.RequestException as error:
+            if attempt == INTERWIKI_REQUEST_ATTEMPTS - 1:
+                logger.error(
+                    "Interwiki request failed after %s attempts; "
+                    "continuing with an empty map: %s",
+                    INTERWIKI_REQUEST_ATTEMPTS,
+                    error,
+                )
+                return []
+            delay = 2**attempt
+            logger.warning(
+                "Interwiki request failed; retrying in %s second(s) (%s/%s)",
+                delay,
+                attempt + 1,
+                INTERWIKI_REQUEST_ATTEMPTS,
+            )
+            time.sleep(delay)
+            continue
+
+        if response.ok:
+            results = response.json()
+            return results.get("query", {}).get("interwikimap", [])
+        return []
+
     return []
 
 

@@ -1,4 +1,4 @@
-"""Regression coverage for sentence-stage wikilink formatting."""
+"""回归测试覆盖句子阶段的 wikilink 格式化。"""
 
 from __future__ import annotations
 

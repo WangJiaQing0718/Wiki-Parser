@@ -23,7 +23,6 @@ section / paragraph / sentence via SectionsWriter / ParagraphsWriter /
 SentencesWriter. `_run_core` stays generic -- swap the extractor + sink to
 change what gets written.
 
-Design notes: see docs/architecture.md.
 """
 
 from __future__ import annotations
@@ -89,7 +88,7 @@ class ParagraphRunStats:
 # Written by ProcessedTextWriter (text_process) + ComponentWriter (components)
 # + SectionsWriter / ParagraphsWriter / SentencesWriter (hierarchical rows).
 # =========================================================================== #
-# Component types; each gets its own table wiki_component_<type>.
+# Component types; each gets its own table component_<type>.
 # file/image are split: [[File:...]] -> file table, [[Image:...]] -> image table.
 COMPONENT_TYPES = (
     "infobox", "table", "wikilinks", "external_links", "file", "image", "ref",
@@ -110,6 +109,7 @@ _SKIP_COMPONENT_TOCS = frozenset({
     "category",
     "external links",
     "footnotes",
+    "notes"
 })
 
 # The current WTP pipeline still extracts components from these sections, but
@@ -470,19 +470,23 @@ def build_bundle(
             text_process = "\n\n".join(_section_part(section) for section in sections)
             paragraphs = extract_paragraphs(sections, row["page_id"])
 
-            # Paragraphs under reference/link-like sections are retained after
-            # component extraction, but deliberately bypass MWP/WTP and sentence
-            # segmentation.  Their toc may include a subsection suffix such as
+            # When a reference/link-like TOC root appears, that paragraph and
+            # every following paragraph in the article stay paragraph-only.
+            # Their toc may include a subsection suffix such as
             # ``References:Books``.
             wtp_paragraphs = []
+            skip_remaining = False
             for paragraph in paragraphs:
                 transformed_wikitext = paragraph.text
                 paragraph.raw_wikitext = raw_paragraphs.get(
                     (paragraph.section_no, paragraph.paragraph_no),
                     transformed_wikitext,
                 )
-                paragraph.wtp_skipped = should_skip_wtp_for_toc(paragraph.toc)
+                paragraph.wtp_skipped = (
+                    skip_remaining or should_skip_wtp_for_toc(paragraph.toc)
+                )
                 if paragraph.wtp_skipped:
+                    skip_remaining = True
                     continue
                 wtp_paragraphs.append(paragraph)
 
@@ -651,7 +655,7 @@ def connect(
 
 
 # --------------------------------------------------------------------------- #
-# Processed-text writer: simplewiki_processed, one row per article, MERGE upsert
+# Processed-text writer: processed, one row per article, MERGE upsert
 # on revision_id (idempotent). text_process = wikitext with components replaced by
 # their ids. Upserts run as chunked multi-row MERGE statements -- one round trip
 # per chunk instead of one per row.
@@ -663,14 +667,14 @@ class ProcessedTextWriter:
         self,
         config: dict[str, Any],
         schema: str,
-        table: str = "simplewiki_processed",
+        table: str = "wiki_processed",
         batch_size: int = 500,
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
-        self.object_name = f"{schema}.{table}"
+        self.object_name = self.qualified
         self._merge_sql = self._build_merge_sql()
         self._buffer: list[tuple[Any, ...]] = []
         self._conn = connect(
@@ -746,7 +750,7 @@ class ProcessedTextWriter:
 
 
 # --------------------------------------------------------------------------- #
-# Component writer: one table per component type (wiki_component_<type>).
+# Component writer: one table per component type (component_<type>).
 # Rows come pre-labelled with their <type>_id (assigned per-page in the worker so
 # they match the ids embedded in text_process) plus the owning page_id.
 # Delete-then-insert per flush, keyed on page_id (like the hierarchical writers
@@ -767,13 +771,16 @@ class ComponentWriter:
         schema: str,
         batch_size: int = 500,
         table_prefix: str = "wiki_component",
+        table_version_suffix: str = "",
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
         self.batch_size = batch_size
-        self._table_names = {t: f"{table_prefix}_{t}" for t in COMPONENT_TYPES}
+        self._table_names = {
+            t: f"{table_prefix}_{t}{table_version_suffix}" for t in COMPONENT_TYPES
+        }
         self._tables = {t: qualified_name(schema, name) for t, name in self._table_names.items()}
-        self._object_names = {t: f"{schema}.{name}" for t, name in self._table_names.items()}
+        self._object_names = dict(self._tables)
         self._buffers: dict[str, list[tuple[int, str, str]]] = {t: [] for t in COMPONENT_TYPES}
         # Pages seen since the last flush: the per-type DELETE keys. Every page
         # of the batch is included, even when its parse produced no rows for a
@@ -919,7 +926,7 @@ def _insert_multirow(
 
 
 class SectionsWriter:
-    """simplewiki_sections: delete-then-insert per flush (stale-row safe)."""
+    """sections: delete-then-insert per flush (stale-row safe)."""
 
     _COLS = (
         "revision_id", "page_id", "page_title", "section_no", "toc",
@@ -930,14 +937,14 @@ class SectionsWriter:
         self,
         config: dict[str, Any],
         schema: str,
-        table: str = "simplewiki_sections",
+        table: str = "wiki_sections",
         batch_size: int = 500,
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
-        self.object_name = f"{schema}.{table}"
+        self.object_name = self.qualified
         self._buffer: list[tuple[Any, ...]] = []
         self.written = 0
         self._conn = connect(
@@ -999,7 +1006,7 @@ class SectionsWriter:
 
 
 class ParagraphsWriter:
-    """simplewiki_paragraph: delete-then-insert per flush (stale-row safe)."""
+    """paragraph: delete-then-insert per flush (stale-row safe)."""
 
     _COLS = (
         "revision_id", "page_id", "page_title", "section_no", "paragraph_no",
@@ -1010,14 +1017,14 @@ class ParagraphsWriter:
         self,
         config: dict[str, Any],
         schema: str,
-        table: str = "simplewiki_paragraph",
+        table: str = "wiki_paragraph",
         batch_size: int = 500,
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
-        self.object_name = f"{schema}.{table}"
+        self.object_name = self.qualified
         self._buffer: list[tuple[Any, ...]] = []
         self.written = 0
         self._conn = connect(
@@ -1095,14 +1102,14 @@ class WtpIntermediateWriter:
         self,
         config: dict[str, Any],
         schema: str,
-        table: str = "simplewiki_wtp_intermediate",
+        table: str = "wiki_wtp_intermediate",
         batch_size: int = 500,
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
-        self.object_name = f"{schema}.{table}"
+        self.object_name = self.qualified
         self._buffer: list[tuple[Any, ...]] = []
         self._pending_revision_ids: set[Any] = set()
         self.written = 0
@@ -1180,7 +1187,7 @@ class WtpIntermediateWriter:
 
 
 class SentencesWriter:
-    """simplewiki_sentence: delete-then-insert per flush (stale-row safe)."""
+    """sentence: delete-then-insert per flush (stale-row safe)."""
 
     _COLS = ("revision_id", "page_id", "page_title", "section_no", "paragraph_no",
              "sentence_no", "toc", "raw_text", "text")
@@ -1189,14 +1196,14 @@ class SentencesWriter:
         self,
         config: dict[str, Any],
         schema: str,
-        table: str = "simplewiki_sentence",
+        table: str = "wiki_sentence",
         batch_size: int = 500,
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
-        self.object_name = f"{schema}.{table}"
+        self.object_name = self.qualified
         self._buffer: list[tuple[Any, ...]] = []
         self._pending_revision_ids: set[Any] = set()
         self.written = 0

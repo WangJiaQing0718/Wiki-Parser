@@ -1,4 +1,4 @@
-"""Regression coverage for lists flowing through the WTP paragraph pipeline."""
+"""回归测试覆盖通过 WTP 段落流水线的列表。"""
 
 from __future__ import annotations
 

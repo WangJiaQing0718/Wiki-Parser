@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-XML side: stream a Wikipedia dump into "batches" and provide the raw-table writer.
+XML 侧：将 Wikipedia 转储流式传输到"批次"并为原始表写入器提供数据。
 
-  * build_latest_record -- take each page's latest revision, assemble one raw record.
-  * XmlBatchSource      -- stream-read the dump (bz2), yield batches of records (for the engine to consume).
-  * SQLServerWriter     -- batched upsert writer for the raw table simplewiki_latest (fixed structure).
+  * build_latest_record -- 取每个页面的最新修订版，组装一个原始记录。
+  * XmlBatchSource      -- 流式读取转储（bz2），生成记录批次（供引擎消费）。
+  * SQLServerWriter     -- 原始表 latest 的批量 upsert 写入器（固定结构）。
 
-The raw-table structure is fixed by this module (matching the dump fields); the
-component tables are defined by engine.ComponentWriter.
+原始表结构由本模块定义（匹配转储字段）；组件表由 engine.ComponentWriter 定义。
 """
 
 from __future__ import annotations
@@ -21,7 +20,7 @@ import pymssql
 
 
 def build_latest_record(page: Any, latest_revision: Any) -> dict[str, Any]:
-    """One page's latest revision -> raw record. Adds a `content` alias so the parse path can read it directly."""
+    """一个页面的最新修订版 -> 原始记录。添加 `content` 别名以便解析路径可以直接读取。"""
     record = {
         "page_id": page.id,
         "page_title": page.title,
@@ -36,16 +35,15 @@ def build_latest_record(page: Any, latest_revision: Any) -> dict[str, Any]:
         "format": latest_revision.format,
         "text": latest_revision.text,
     }
-    record["content"] = record["text"]  # the parse path (process_batch) reads content
+    record["content"] = record["text"]  # 解析路径（process_batch）读取 content
     return record
 
 
 class XmlBatchSource:
-    """Stream the XML dump into "batches (lists of records)" for the engine's _run_core to consume.
+    """将 XML 转储流式传输到"批次（记录列表）"供引擎的 _run_core 消费。
 
-    Each record serves both paths: the raw writer reads all keys of
-    build_latest_record; parsing reads content. Iteration opens the stream;
-    close() closes it (the engine calls it during cleanup).
+    每个记录服务两条路径：原始写入器读取 build_latest_record 的所有键；
+    解析读取 content。迭代打开流；close() 关闭它（引擎在清理时调用）。
     """
 
     def __init__(
@@ -58,8 +56,8 @@ class XmlBatchSource:
         self.dump_path = dump_path
         self.chunk_size = chunk_size
         self.max_pages = max_pages
-        # None = all namespaces; otherwise keep only pages whose namespace is in the set
-        # (e.g. {0} for articles only).
+        # None = 所有命名空间；否则只保留命名空间在集合中的页面
+        # （例如 {0} 只保留文章）。
         self.namespaces = namespaces
         self._stream: Any = None
 
@@ -74,7 +72,7 @@ class XmlBatchSource:
         for page in dump:
             page_count += 1
             if self.namespaces is not None and page.namespace not in self.namespaces:
-                continue  # skip non-matching namespaces (e.g. templates/categories)
+                continue  # 跳过不匹配的命名空间（例如模板/分类）
             latest_revision = None
             for revision in page:
                 latest_revision = revision
@@ -94,7 +92,7 @@ class XmlBatchSource:
 
 
 class SkippingBatchSource:
-    """Filter terminal revisions while leaving an underlying stream sequential."""
+    """过滤终端修订版同时保持底层流顺序。"""
 
     def __init__(self, source: Any, terminal_revision_ids: set[int]) -> None:
         self.source = source
@@ -116,7 +114,7 @@ class SkippingBatchSource:
 
 
 class SQLServerBatchSource:
-    """Read existing ``simplewiki_latest`` rows in batches without reimporting XML."""
+    """批量读取现有 ``latest`` 行而无需重新导入 XML。"""
 
     def __init__(
         self,
@@ -142,7 +140,7 @@ class SQLServerBatchSource:
     @staticmethod
     def _quote_ident(name: str) -> str:
         if not name:
-            raise ValueError("Schema and table names must be non-empty.")
+            raise ValueError("架构和表名必须非空。")
         return "[" + name.replace("]", "]]" ) + "]"
 
     @property
@@ -180,9 +178,9 @@ class SQLServerBatchSource:
 
 
 class SQLServerWriter:
-    """Batched upsert writer for the raw table simplewiki_latest (fixed structure, matching the dump fields)."""
+    """原始表 latest 的批量 upsert 写入器（固定结构，匹配转储字段）。"""
 
-    # Raw-table column order; write_record must build rows in this order.
+    # 原始表列顺序；write_record 必须按此顺序构建行。
     _COLUMNS = (
         "revision_id", "page_id", "page_title", "namespace", "is_redirect",
         "comment", "user_text", "user_id", "minor",
@@ -197,18 +195,17 @@ class SQLServerWriter:
         login_timeout: float = 60.0,
     ) -> None:
         self.schema = config.get("schema", "dbo")
-        # `or` (not .get default) so an explicit null "table" in the JSON also falls back.
-        self.table = config.get("table") or "simplewiki_latest"
+        # `or` (不是 .get 默认) 以便 JSON 中显式 null 的"table"也回退。
+        self.table = config.get("table") or "wiki_latest"
         self.batch_size = batch_size
         self._buffer: list[tuple[Any, ...]] = []
         self._qualified_table = self._qualified_name(self.schema, self.table)
-        self._object_name = f"{self.schema}.{self.table}"
+        self._object_name = self._qualified_table
         self._merge_sql = self._build_merge_sql()
 
-        # db_timeout = query timeout (seconds), 0 = unlimited; the combined
-        # pipeline passes a non-zero value to prevent DB writes from blocking
-        # forever on network jitter or a stalled server. login_timeout =
-        # connect/login timeout.
+        # db_timeout = 查询超时（秒），0 = 无限；组合流水线传递非零值以防止
+        # DB 写入在网络抖动或服务器停滞时永远阻塞。login_timeout =
+        # 连接/登录超时。
         self._conn = pymssql.connect(
             server=config["host"],
             port=int(config.get("port", 1433)),
@@ -225,7 +222,7 @@ class SQLServerWriter:
     @staticmethod
     def _quote_ident(name: str) -> str:
         if not name:
-            raise ValueError("Schema and table names must be non-empty.")
+            raise ValueError("架构和表名必须非空。")
         return "[" + name.replace("]", "]]") + "]"
 
     @classmethod
@@ -296,7 +293,7 @@ class SQLServerWriter:
             self.flush()
 
     def add_rows(self, records: list[dict[str, Any]]) -> None:
-        """Batched write (the raw-writer interface used by the combined pipeline)."""
+        """批量写入（组合流水线使用的原始写入器接口）。"""
         for record in records:
             self.write_record(record)
 
@@ -319,9 +316,9 @@ class SQLServerWriter:
     def flush(self) -> None:
         if not self._buffer:
             return
-        # Chunked multi-row MERGE: one round trip per chunk instead of one per
-        # row; the chunk size keeps each statement below SQL Server's
-        # 2100-parameter limit (13 columns/row -> 153 rows).
+        # 分块多行 MERGE：每批一次往返而不是每行一次；
+        # 批次大小保持每个语句低于 SQL Server 的
+        # 2100 参数限制（13 列/行 -> 153 行）。
         rows_per_stmt = max(1, 2000 // len(self._COLUMNS))
         row = "(" + ", ".join(["%s"] * len(self._COLUMNS)) + ")"
         try:

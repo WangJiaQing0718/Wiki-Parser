@@ -1,8 +1,8 @@
-"""ProcessA's narrow adapter around the separately-installed ProjectB package.
+"""针对单独安装的 ProjectB 包的狭小适配器。
 
-The worker owns one Wtp instance.  It opens the selected versioned SQLite DB
-read-only and disables Wikidata HTTP fallback, so a cache miss cannot stall a
-batch or change the data asset.
+worker 拥有自己的 Wtp 实例。它打开选定的版本化 SQLite DB
+只读，并禁用 Wikidata HTTP 回退，因此缓存未命中不能阻塞
+批次或更改数据资产。
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from typing import Any, Mapping
 
 import mwparserfromhell
 
-
 _WTP: Any | None = None
 
 
@@ -24,31 +23,29 @@ def _resolve_path(value: str, base: Path) -> Path:
     return (base / path).resolve() if not path.is_absolute() else path.resolve()
 
 
-def load_wtp_settings(
-    config: Mapping[str, Any], config_base: Path
-) -> dict[str, Any]:
-    """Resolve WTP settings from the ``wtp`` section of the unified config."""
+def load_wtp_settings(config: Mapping[str, Any], config_base: Path) -> dict[str, Any]:
+    """从统一配置的 ``wtp`` 部分解析 WTP 设置。"""
     db_value = config.get("db_path")
     if not db_value:
-        raise ValueError("Missing wtp config key: db_path")
+        raise ValueError("缺少 wtp 配置键：db_path")
 
     db_path = _resolve_path(str(db_value), config_base)
     if not db_path.is_file():
-        raise FileNotFoundError(f"Configured WTP DB does not exist: {db_path}")
+        raise FileNotFoundError(f"配置的 WTP DB 不存在：{db_path}")
     return {
         "db_path": str(db_path),
         "lang_code": str(config.get("lang_code", "en")),
         "project": str(config.get("project", "wikipedia")),
-        "expand_timeout": float(config.get("expand_timeout", 15.0)),
-        # These defaults are deliberate for the batch pipeline.  ProjectB
-        # remains capable of its normal writable/online mode for standalone use.
+        "expand_timeout": float(config.get("expand_timeout", 60.0)),
+        # 这些默认值是为批次流水线刻意设置的。ProjectB
+        # 仍保留其正常可写/在线模式用于独立使用。
         "read_only": bool(config.get("read_only", True)),
         "wikidata_offline": bool(config.get("wikidata_offline", True)),
     }
 
 
 def initialize_wtp_worker(settings: Mapping[str, Any] | None) -> None:
-    """Process-pool initializer: never share Wtp/Lua state across workers."""
+    """处理池初始化器：永远不要跨 worker 共享 Wtp/Lua 状态。"""
     global _WTP
     if settings is None:
         _WTP = None
@@ -68,41 +65,40 @@ def initialize_wtp_worker(settings: Mapping[str, Any] | None) -> None:
 
 def begin_page(page_title: str) -> None:
     if _WTP is None:
-        raise RuntimeError("WTP worker was not initialized")
+        raise RuntimeError("WTP worker 未初始化")
     _WTP.start_page(page_title)
 
 
 def analyze_wikitext(raw_wikitext: str) -> tuple[int, str | None]:
-    """Validate paragraph structure with MWP without an unused tree walk.
+    """使用 MWP 验证 paragraph 结构而不进行不必要的树遍历。
 
-    ``build_bundle`` only needs the parse failure signal.  Counting templates
-    with ``filter_templates(recursive=True)`` traversed the full tree once more
-    for every paragraph, but its result was never consumed.
+    ``build_bundle`` 只需要解析失败信号。使用 ``filter_templates(recursive=True)``
+    计算模板会再次遍历完整树，但结果从未被消费。
     """
     try:
         mwparserfromhell.parse(raw_wikitext)
         return 0, None
-    except Exception as exc:  # MWP must not stop the paragraph/batch.
+    except Exception as exc:  # MWP 绝不能阻止 paragraph/批次。
         return 0, f"MWP {type(exc).__name__}: {exc}"
 
 
 def expand_to_text(wikitext: str, timeout: float) -> tuple[str, str, str | None]:
-    """Expand Wikitext and return final text, raw expansion, and any error.
+    """扩展 Wikitext 并返回最终文本、原始扩展和任何错误。
 
-    The raw expansion is retained separately because it is the diagnostic
-    boundary between WTP/Lua processing and ProjectA's visible-text conversion.
+    保留原始扩展是因为它是 WTP/Lua 处理与 ProjectA 可见文本转换之间的
+    诊断边界。
     """
     if _WTP is None:
-        raise RuntimeError("WTP worker was not initialized")
+        raise RuntimeError("WTP worker 未初始化")
     before = len(_WTP.errors)
     try:
         expanded = _WTP.expand(wikitext, timeout=timeout)
         errors = _WTP.errors[before:]
         error = "; ".join(str(item) for item in errors) or None
         return expanded_wikitext_to_text(expanded), expanded, error
-    except Exception as exc:  # Lua/template failures are isolated per paragraph.
-        # No successful WTP output exists; record the exact input as the
-        # recoverable intermediate value and make the error explicit.
+    except Exception as exc:  # Lua/模板失败按 paragraph 隔离。
+        # 没有成功的 WTP 输出；记录精确输入作为
+        # 可恢复的中间值并使错误明确。
         return (
             expanded_wikitext_to_text(wikitext),
             wikitext,
@@ -115,7 +111,7 @@ def _remove_file_links(text: str) -> str:
     while (match := pattern.search(text)) is not None:
         start, pos, depth = match.start(), match.end(), 1
         while pos < len(text) - 1:
-            pair = text[pos:pos + 2]
+            pair = text[pos : pos + 2]
             if pair == "[[":
                 depth, pos = depth + 1, pos + 2
             elif pair == "]]":
@@ -131,11 +127,31 @@ def _remove_file_links(text: str) -> str:
 
 
 class _VisibleTextParser(HTMLParser):
-    block_tags = frozenset({
-        "p", "div", "table", "tr", "td", "th", "ul", "ol", "li", "dl",
-        "dt", "dd", "section", "header", "footer", "h1", "h2", "h3", "h4",
-        "h5", "h6",
-    })
+    block_tags = frozenset(
+        {
+            "p",
+            "div",
+            "table",
+            "tr",
+            "td",
+            "th",
+            "ul",
+            "ol",
+            "li",
+            "dl",
+            "dt",
+            "dd",
+            "section",
+            "header",
+            "footer",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+        }
+    )
     skip_tags = frozenset({"style", "script", "ref", "references", "templatestyles"})
 
     def __init__(self) -> None:
@@ -165,12 +181,12 @@ class _VisibleTextParser(HTMLParser):
 
 
 def expanded_wikitext_to_text(expanded: str) -> str:
-    """Convert WTP-expanded wikitext to paragraph text.
+    """将 WTP 扩展后的 wikitext 转换为 paragraph 文本。
 
-    Ordinary ``[[...]]`` links deliberately remain intact here.  The sentence
-    pipeline consumes this paragraph text and applies its established
-    ``_process_wikilinks`` representation there.  Categories and file/image
-    links are still removed because they are not sentence content.
+    普通 ``[[...]]`` 链接在这里故意保持完整。sentence
+    pipeline 消费这个 paragraph 文本并在那里应用其建立的
+    ``_process_wikilinks`` 表示。类别和文件/图片链接
+    仍然被移除，因为它们不是 sentence 内容。
     """
     text = re.sub(r"<!--.*?-->", "", expanded, flags=re.S)
     text = re.sub(r"<ref\b[^>]*>.*?</ref\s*>", "", text, flags=re.I | re.S)

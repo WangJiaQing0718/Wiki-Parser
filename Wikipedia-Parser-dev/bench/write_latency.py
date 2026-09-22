@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Benchmark: simulate DB write latency to see when writing becomes the bottleneck.
+"""基准测试：模拟数据库写入延迟，以观察何时写入成为瓶颈。
 
     python bench/write_latency.py [dump.xml.bz2] [N] [workers]
 
-- The writer sleeps a bit per batch (sleep releases the GIL, like a real pymssql DB round trip); the two writers
-  (raw + processed) run in parallel on their own threads, and the bottleneck is the slower one.
-- Single-writer cap = 500000 / L(ms) rows/sec; when it drops to near the "read+parse ceiling",
-  writing starts to slow down the whole pipeline.
+- 写入器每批休眠一点时间（休眠会释放 GIL，就像真实的 pymssql 数据库往返一样）；两个写入器
+  （raw + processed）在自己的线程上并行运行，瓶颈是较慢的那一个。
+- 单写入器上限 = 500000 / L(ms) 行/秒；当它下降到接近"read+parse ceiling"时，
+  写入开始拖慢整个流水线。
 """
 
 import os

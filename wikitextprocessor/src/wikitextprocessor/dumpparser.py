@@ -117,6 +117,9 @@ def process_dump(
     # a SQLite database file.
     if not skip_extract_dump:
         parse_dump_xml(wtp, path, namespace_ids)
+        # Persist extraction before the optional network request below.  If
+        # fetching interwiki data fails, the collected pages remain usable.
+        wtp.db_conn.commit()
         if save_pages_path is not None:
             save_pages_to_file(wtp, save_pages_path)
         init_interwiki_map(wtp)

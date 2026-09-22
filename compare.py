@@ -224,14 +224,14 @@ DB_CONFIG = {
     "port": 1433,
     "user": "sa",
     "password": "Wang342688",
-    "database": "simplewiki",
+    "database": "Dev0921",
     "schema": "dbo",
 }
 
-PARAGRAPH_TABLE = "simplewiki_paragraph"
-SENTENCE_TABLE = "simplewiki_sentence"
-LATEST_TABLE = "simplewiki_latest"
-INTERMEDIATE_TABLE = "simplewiki_wtp_intermediate"
+PARAGRAPH_TABLE = "wiki_paragraph_[20260801]"
+SENTENCE_TABLE = "wiki_sentence_[20260801]"
+LATEST_TABLE = "wiki_latest_[20260801]"
+INTERMEDIATE_TABLE = "wiki_wtp_intermediate_[20260801]"
 
 VIEW_OPTIONS = {
     "页面对照": "compare",
@@ -247,6 +247,17 @@ LEFT_SOURCE_OPTIONS = {
 # ============================================================
 # SQL Server
 # ============================================================
+
+def quote_identifier(identifier):
+    """Quote one SQL Server identifier, escaping closing brackets."""
+    if not identifier:
+        raise ValueError("SQL identifier must not be empty")
+    return "[" + identifier.replace("]", "]]") + "]"
+
+
+def qualified_table(table_name):
+    """Return a safely quoted schema-qualified SQL Server table name."""
+    return f"{quote_identifier(DB_CONFIG['schema'])}.{quote_identifier(table_name)}"
 
 @st.cache_data(show_spinner=False)
 def get_sql_driver():
@@ -311,7 +322,7 @@ def fetch_page_paragraphs(page_id):
         page_title,
         raw_wikitext,
         parse_error
-    FROM [{DB_CONFIG['schema']}].[{PARAGRAPH_TABLE}]
+    FROM {qualified_table(PARAGRAPH_TABLE)}
     WHERE page_id = ?
     ORDER BY
         section_no ASC,
@@ -366,7 +377,7 @@ def fetch_page_sentences(page_id):
         toc,
         raw_text,
         [text]
-    FROM [{DB_CONFIG['schema']}].[{SENTENCE_TABLE}]
+    FROM {qualified_table(SENTENCE_TABLE)}
     WHERE page_id = ?
     ORDER BY
         section_no ASC,
@@ -402,14 +413,14 @@ def fetch_page_sentences(page_id):
 
 @st.cache_data(show_spinner=False, ttl=60)
 def fetch_latest_content(page_id):
-    """读取 simplewiki_latest 中指定 page_id 的最新一条 content。"""
+    """读取当前版本 latest 表中指定 page_id 的最新一条 content。"""
     sql = f"""
     SELECT TOP (1)
         page_id,
         revision_id,
         page_title,
         content
-    FROM [{DB_CONFIG['schema']}].[{LATEST_TABLE}]
+    FROM {qualified_table(LATEST_TABLE)}
     WHERE page_id = ?
     ORDER BY revision_id DESC;
     """
@@ -445,8 +456,8 @@ def fetch_wtp_intermediate(page_id):
         p.[text] AS [text],
         i.parse_error AS wtp_parse_error,
         p.parse_error AS paragraph_parse_error
-    FROM [{DB_CONFIG['schema']}].[{INTERMEDIATE_TABLE}] AS i
-    INNER JOIN [{DB_CONFIG['schema']}].[{PARAGRAPH_TABLE}] AS p
+    FROM {qualified_table(INTERMEDIATE_TABLE)} AS i
+    INNER JOIN {qualified_table(PARAGRAPH_TABLE)} AS p
         ON p.revision_id = i.revision_id
        AND p.page_id = i.page_id
        AND p.section_no = i.section_no
@@ -507,7 +518,7 @@ def get_neighbor_page_id(page_id, direction, table_name):
     sql = f"""
     SELECT TOP (1)
         page_id
-    FROM [{DB_CONFIG['schema']}].[{table_name}]
+    FROM {qualified_table(table_name)}
     WHERE page_id {comparator} ?
     ORDER BY page_id {order};
     """
@@ -531,7 +542,7 @@ def get_page_id_bounds(table_name):
     SELECT
         MIN(page_id) AS min_page_id,
         MAX(page_id) AS max_page_id
-    FROM [{DB_CONFIG['schema']}].[{table_name}];
+    FROM {qualified_table(table_name)};
     """
 
     with open_sql_connection() as conn:
@@ -568,7 +579,7 @@ def get_random_page_id(table_name):
     candidate_sql = f"""
     SELECT TOP (1)
         page_id
-    FROM [{DB_CONFIG['schema']}].[{table_name}]
+    FROM {qualified_table(table_name)}
     WHERE page_id >= ?
     ORDER BY page_id ASC;
     """
@@ -576,7 +587,7 @@ def get_random_page_id(table_name):
     fallback_sql = f"""
     SELECT TOP (1)
         page_id
-    FROM [{DB_CONFIG['schema']}].[{table_name}]
+    FROM {qualified_table(table_name)}
     ORDER BY page_id ASC;
     """
 
@@ -1266,8 +1277,8 @@ left, right = st.columns([1, 1], gap="medium")
 
 
 # ------------------------------------------------------------
-# 左上：可切换 simplewiki_paragraph.text / simplewiki_sentence.text
-# 左下：simplewiki_latest.content 原文
+# 左上：可切换当前版本 paragraph.text / sentence.text
+# 左下：当前版本 latest.content 原文
 # ------------------------------------------------------------
 
 with left:
@@ -1317,4 +1328,4 @@ with right:
         scrolling=True,
     )
 
-    st.caption("右侧 Wikipedia 地址由 simplewiki_paragraph.page_title 生成。")
+    st.caption("右侧 Wikipedia 地址由当前版本 paragraph.page_title 生成。")

@@ -1,4 +1,4 @@
-"""Regression coverage for the lightweight per-paragraph MWP validation."""
+"""回归测试覆盖轻量级每段落 MWP 验证。"""
 
 from __future__ import annotations
 

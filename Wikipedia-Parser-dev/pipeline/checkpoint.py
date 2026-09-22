@@ -1,4 +1,4 @@
-"""Durable terminal-state storage for logical XML import resume."""
+"""用于逻辑 XML 导入恢复的持久化终端状态存储。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ COMPLETED_WITH_ERRORS = "completed_with_errors"
 
 
 def source_id_for_path(path: Path) -> str:
-    """Return a stable ID for this exact path/size/mtime version of a dump."""
+    """为转储的这个精确路径/大小/mtime 版本返回一个稳定的 ID。"""
     stat = path.stat()
     identity = "\0".join(
         ("xml-logical-resume-v1", str(path.resolve()), str(stat.st_size), str(stat.st_mtime_ns))
@@ -25,7 +25,7 @@ def source_id_for_path(path: Path) -> str:
 def terminal_records_for(
     source_id: str, bundles: list[dict[str, Any]]
 ) -> list[tuple[str, int, int, str]]:
-    """Convert committed parse bundles into checkpoint rows."""
+    """将已提交的解析包转换为 checkpoint 行。"""
     return [
         (
             source_id,
@@ -39,12 +39,12 @@ def terminal_records_for(
 
 def quote_ident(name: str) -> str:
     if not name:
-        raise ValueError("Identifier must be non-empty.")
+        raise ValueError("标识符必须非空。")
     return "[" + name.replace("]", "]]" ) + "]"
 
 
 class SQLServerCheckpointStore:
-    """Checkpoint table for one source ID, backed by a dedicated SQL connection."""
+    """由专用 SQL 连接的 checkpoint 表支持的一个源 ID 的 checkpoint 表。"""
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class SQLServerCheckpointStore:
         self.schema = schema
         self.table = table
         self._qualified = f"{quote_ident(schema)}.{quote_ident(table)}"
-        self._object_name = f"{schema}.{table}".replace("'", "''")
+        self._object_name = self._qualified.replace("'", "''")
         self._conn = pymssql.connect(
             server=config["host"], port=int(config.get("port", 1433)),
             user=config["user"], password=config["password"],

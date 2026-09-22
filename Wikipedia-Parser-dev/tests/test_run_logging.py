@@ -1,4 +1,4 @@
-"""Regression tests for per-run console log capture."""
+"""回归测试覆盖每次运行的控制台日志捕获。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Sections that must remain paragraph-only and bypass WTP."""
+"""必须保持仅段落并通过 WTP 的章节。"""
 
 from __future__ import annotations
 
@@ -37,24 +37,24 @@ class SkipWtpSectionsTest(unittest.TestCase):
                 self.assertTrue(should_skip_wtp_for_toc(toc))
         self.assertFalse(should_skip_wtp_for_toc("History:Background"))
 
-    def test_target_paragraphs_bypass_wtp_sentences_and_intermediate_output(self) -> None:
-        """Reference-path paragraphs remain in paragraph output but never reach WTP."""
+    def test_trigger_toc_skips_itself_and_all_later_sections(self) -> None:
+        """Once References appears, later sections must remain paragraph-only."""
         row = {
             "revision_id": 1,
             "page_id": 2,
             "page_title": "Example",
             "namespace": 0,
             "model": "wikitext",
-            "content": """
+        "content": """
+==Lead==
+Lead paragraph.
+
 ==rEfErEnCeS==
 ===Books===
 Reference paragraph.
 
-==OTHER WEBSITES==
-External paragraph.
-
 ==History==
-Ordinary paragraph.
+History paragraph.
 """,
         }
 
@@ -74,17 +74,18 @@ Ordinary paragraph.
         begin_page.assert_called_once_with("Example")
         self.assertEqual(1, analyze.call_count)
         self.assertEqual(1, expand.call_count)
-        self.assertEqual("Ordinary paragraph.", expand.call_args.args[0])
+        self.assertEqual("Lead paragraph.", expand.call_args.args[0])
         self.assertEqual(
-            ["History"],
+            ["Lead"],
             [paragraph.toc for paragraph in extract_sentences.call_args.args[0]],
         )
 
         paragraphs = {paragraph.toc: paragraph for paragraph in bundle["paragraphs"]}
+        self.assertFalse(paragraphs["Lead"].wtp_skipped)
         self.assertTrue(paragraphs["rEfErEnCeS:Books"].wtp_skipped)
-        self.assertTrue(paragraphs["OTHER WEBSITES"].wtp_skipped)
+        self.assertTrue(paragraphs["History"].wtp_skipped)
         self.assertEqual("Reference paragraph.", paragraphs["rEfErEnCeS:Books"].text)
-        self.assertEqual("expanded: Ordinary paragraph.", paragraphs["History"].text)
+        self.assertEqual("History paragraph.", paragraphs["History"].text)
 
         writer = object.__new__(WtpIntermediateWriter)
         writer._buffer = []
@@ -92,7 +93,7 @@ Ordinary paragraph.
         writer.batch_size = 99
         writer.add_rows([bundle])
         self.assertEqual(1, len(writer._buffer))
-        self.assertEqual("History", writer._buffer[0][5])
+        self.assertEqual("Lead", writer._buffer[0][5])
 
     def test_empty_skip_only_output_deletes_stale_wtp_and_sentence_rows(self) -> None:
         """Reprocessing a skip-only article must not leave old derived rows behind."""

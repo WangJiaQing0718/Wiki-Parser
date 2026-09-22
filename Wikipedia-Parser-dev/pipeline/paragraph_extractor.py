@@ -33,8 +33,8 @@ class Paragraph:
     wtp_input: str | None = None
     expanded_wikitext: str | None = None
     parse_error: str | None = None
-    # True for selected reference/link-like sections that are stored only in
-    # the paragraph table after component extraction.
+    # True once a selected reference/link-like TOC root is reached; this and
+    # all following paragraphs are stored only in the paragraph table.
     wtp_skipped: bool = False
 
 

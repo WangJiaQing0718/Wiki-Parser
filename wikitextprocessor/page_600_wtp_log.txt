@@ -1,0 +1,33 @@
+page_id: 600
+revision_id: 10949418
+page_title: People's Republic of China
+namespace: 0
+source_length: 47870
+expanded_length: 55159
+cite_processed_length: 54277
+cite_ref_occurrences: 61
+cite_unique_named_refs: 13
+cite_groups: {'': 49, 'lower-alpha': 2}
+cite_rendered_groups: ['', 'lower-alpha']
+cite_unresolved_named_refs: 0
+text_length: 26587
+errors: 2
+warnings: 2
+debugs: 0
+
+====================================================================================================
+ERRORS
+====================================================================================================
+{'msg': "LUA error in #invoke('webarchive', 'webarchive') parent ('Template:Webarchive', {'url': 'https://web.archive.org/web/20091115134824/http://www.china21th.net.ms/', 'date': '2009-11-15'})", 'trace': '[string "Module:webarchive"]:832: attempt to index local \'uri\' (a nil value)', 'title': "People's Republic of China", 'section': '', 'subsection': '', 'called_from': 'luaexec/683', 'path': ("People's Republic of China", 'Template:Webarchive', '#invoke', '#invoke')}
+{'msg': "LUA error in #invoke('webarchive', 'webarchive') parent ('Template:Webarchive', {'url': 'https://web.archive.org/web/20130512205759/http://www.china-map-guide.com/', 'date': '2013-05-12'})", 'trace': '[string "Module:webarchive"]:832: attempt to index local \'uri\' (a nil value)', 'title': "People's Republic of China", 'section': '', 'subsection': '', 'called_from': 'luaexec/683', 'path': ("People's Republic of China", 'Template:Webarchive', '#invoke', '#invoke')}
+
+====================================================================================================
+WARNINGS
+====================================================================================================
+{'msg': '<span style="color:#d33"><code style="color: inherit; background: inherit; border: none; padding: inherit;">&#123;{$1}}</code>: this [[#$2|reference]] has errors</span>; messages may be hidden ([[Help:CS1_errors#Controlling_error_message_display|help]]).', 'trace': '', 'title': "People's Republic of China", 'section': '', 'subsection': '', 'called_from': 'luaexec/mw.addWarning', 'path': ("People's Republic of China", 'Template:Cite news', '#invoke', '#invoke', 'Lua:Module:citation/CS1:citation()')}
+{'msg': '<span style="color:#085"><code style="color: inherit; background: inherit; border: none; padding: inherit;">&#123;{$1}}</code>: this [[#$2|reference]] has maintenance messages</span>; messages may be hidden ([[Help:CS1_errors#Controlling_error_message_display|help]]).', 'trace': '', 'title': "People's Republic of China", 'section': '', 'subsection': '', 'called_from': 'luaexec/mw.addWarning', 'path': ("People's Republic of China", 'Template:cite news', '#invoke', '#invoke', 'Lua:Module:citation/CS1:citation()')}
+
+====================================================================================================
+DEBUGS
+====================================================================================================
+无

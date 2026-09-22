@@ -1,4 +1,4 @@
-"""Regression coverage for component placeholder serialization."""
+"""回归测试覆盖组件占位符序列化。"""
 
 from __future__ import annotations
 

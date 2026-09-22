@@ -1,4 +1,4 @@
-"""Per-run, parse-failure-only log files."""
+"""每运行一次、仅解析失败的日志文件。"""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from typing import TextIO
 
 @dataclass
 class RunLogSession:
-    """Own one run's failure log and flush every failure line immediately."""
+    """拥有自己运行的失败日志并立即刷新每一行失败日志。"""
 
     path: Path
     _log_file: TextIO
     _lock: threading.Lock
 
     def write_parse_failure(self, line: str) -> None:
-        """Append exactly one console-formatted parse-failure line."""
+        """追加恰好一行控制台格式的解析失败行。"""
         with self._lock:
             self._log_file.write(line.rstrip("\r\n") + "\n")
             self._log_file.flush()
@@ -34,7 +34,7 @@ def start_run_log(
     now: datetime | None = None,
     pid: int | None = None,
 ) -> RunLogSession:
-    """Create a unique, initially empty parse-failure log for one run."""
+    """为一运行创建唯一的、初始为空的解析失败日志。"""
     log_dir.mkdir(parents=True, exist_ok=True)
     now = now or datetime.now()
     pid = os.getpid() if pid is None else pid

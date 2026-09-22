@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Benchmark: reader-only vs full-pipeline (empty writers) throughput, to locate the read/parse bottleneck.
+"""基准测试：仅阅读器 vs 完整流水线（空写入器）吞吐量，以定位读取/解析瓶颈。
 
     python bench/read_parse.py [dump.xml.bz2] [N]
 
-- Does not connect to a database (writers are no-ops); measures only "read + parse + collect".
-- N = max pages to process (default 6000; larger is closer to steady state, and slower).
-- Reading the output: if reader-only is clearly faster than full across all workers, reading is not the bottleneck;
-  once full stops getting faster past some workers, it has topped out (usually limited by the main-process GIL stage).
+- 不连接数据库（写入器是无操作的）；仅测量"read + parse + collect"。
+- N = 最大处理页面数（默认 6000；更大的值更接近稳态，但更慢）。
+- 读取输出：如果 reader-only 在所有 worker 上都明显快于 full，则读取不是瓶颈；
+  一旦 full 在某些 worker 后停止变快，它已达到上限（通常受主进程 GIL 阶段限制）。
 """
 
 import os

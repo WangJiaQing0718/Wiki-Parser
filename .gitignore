@@ -2,10 +2,19 @@
 WikiData/*.db
 WikiData/*.db-shm
 WikiData/*.db-wal
-WikiData/current.json
+WikiData/*.xml.bz2
 
-# Local machine configuration and Python caches.
+# Local parser configuration, logs, environments, and generated output.
 Wikipedia-Parser-dev/config.json
+Wikipedia-Parser-dev/db_config.json
 Wikipedia-Parser-dev/logs/
+Wikipedia-Parser-dev/.venv/
+Wikipedia-Parser-dev/venv/
+Wikipedia-Parser-dev/output/
+
+# Python caches.
 __pycache__/
 *.py[cod]
+
+# macOS.
+.DS_Store
