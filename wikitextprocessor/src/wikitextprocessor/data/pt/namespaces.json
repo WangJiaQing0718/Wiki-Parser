@@ -1,0 +1,315 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Multimédia",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Especial",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Utilizador",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Usuária",
+      "Usuário",
+      "Usuário(a)",
+      "Utilizador(a)",
+      "Utilizadora"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Utilizador Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Usuária Discussão",
+      "Usuário Discussão",
+      "Usuário(a) Discussão",
+      "Utilizador(a) Discussão",
+      "Utilizadora Discussão"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wikcionário",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WT",
+      "Wiktionary"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Wikcionário Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Ficheiro",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Arquivo",
+      "Image",
+      "Imagem"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Ficheiro Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Arquivo Discussão",
+      "Image talk",
+      "Imagem Discussão"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "MediaWiki Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Predefinição",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Predefinição Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Ajuda",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Ajuda Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Categoria",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Categoria Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 100,
+    "name": "Apêndice",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 101,
+    "name": "Apêndice Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Vocabulary": {
+    "id": 102,
+    "name": "Vocabulário",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Vocabulary talk": {
+    "id": 103,
+    "name": "Vocabulário Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Rhymes": {
+    "id": 104,
+    "name": "Rimas",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Rhymes talk": {
+    "id": 105,
+    "name": "Rimas Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Portal": {
+    "id": 106,
+    "name": "Portal",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Portal talk": {
+    "id": 107,
+    "name": "Portal Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Citations": {
+    "id": 108,
+    "name": "Citações",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Citations talk": {
+    "id": 109,
+    "name": "Citações Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Módulo",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Módulo Discussão",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}

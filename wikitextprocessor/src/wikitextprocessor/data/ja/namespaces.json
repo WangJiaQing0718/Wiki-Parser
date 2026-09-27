@@ -1,0 +1,242 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "メディア",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "特別",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "利用者",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "利用者・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "利用者‐会話"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wiktionary",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WT"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Wiktionary・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wiktionary talk",
+      "Wiktionary‐ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "ファイル",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image",
+      "画像"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "ファイル・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Image talk",
+      "ファイル‐ノート",
+      "画像‐ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "MediaWiki・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "MediaWiki‐ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "テンプレート",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "テンプレート・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Template‐ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "ヘルプ",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "ヘルプ・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Help‐ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "カテゴリ",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "カテゴリ・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Category‐ノート"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 100,
+    "name": "付録",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 101,
+    "name": "付録・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "モジュール",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "モジュール・トーク",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}

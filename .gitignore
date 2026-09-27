@@ -1,0 +1,20 @@
+# Local Wikipedia runtime data: downloads and generated WTP databases.
+WikiData/*.db
+WikiData/*.db-shm
+WikiData/*.db-wal
+WikiData/*.xml.bz2
+
+# Local parser configuration, logs, environments, and generated output.
+Wikipedia-Parser-dev/config.json
+Wikipedia-Parser-dev/db_config.json
+Wikipedia-Parser-dev/logs/
+Wikipedia-Parser-dev/.venv/
+Wikipedia-Parser-dev/venv/
+Wikipedia-Parser-dev/output/
+
+# Python caches.
+__pycache__/
+*.py[cod]
+
+# macOS.
+.DS_Store

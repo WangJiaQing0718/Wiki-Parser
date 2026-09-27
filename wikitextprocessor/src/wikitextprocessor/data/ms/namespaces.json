@@ -1,0 +1,389 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Media",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Khas",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Istimewa"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Perbincangan",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Perbualan"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Pengguna",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Perbincangan pengguna",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Perbualan Pengguna"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wikikamus",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WT",
+      "Wiktionary"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Perbincangan Wikikamus",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Perbualan Wikikamus",
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Fail",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image",
+      "Imej"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Perbincangan fail",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Image talk",
+      "Imej Perbualan",
+      "Perbincangan Imej"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "Perbincangan MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "MediaWiki Perbualan"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Templat",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Perbincangan templat",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Perbualan Templat"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Bantuan",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Perbincangan bantuan",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Perbualan Bantuan"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Kategori",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Perbincangan kategori",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Perbualan Kategori"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 100,
+    "name": "Lampiran",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 101,
+    "name": "Perbincangan lampiran",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Rhymes": {
+    "id": 102,
+    "name": "Rima",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Rhymes talk": {
+    "id": 103,
+    "name": "Perbincangan rima",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Thesaurus": {
+    "id": 104,
+    "name": "Tesaurus",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Thesaurus talk": {
+    "id": 105,
+    "name": "Perbincangan tesaurus",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Index": {
+    "id": 106,
+    "name": "Indeks",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Index talk": {
+    "id": 107,
+    "name": "Perbincangan indeks",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Citations": {
+    "id": 108,
+    "name": "Petikan",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Citations talk": {
+    "id": 109,
+    "name": "Perbincangan petikan",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Reconstruction": {
+    "id": 110,
+    "name": "Rekonstruksi",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Reconstruction talk": {
+    "id": 111,
+    "name": "Perbincangan rekonstruksi",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Padanan isyarat": {
+    "id": 112,
+    "name": "Padanan isyarat",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Perbincangan padanan isyarat": {
+    "id": 113,
+    "name": "Perbincangan padanan isyarat",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Konkordans": {
+    "id": 114,
+    "name": "Konkordans",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Perbincangan konkordans": {
+    "id": 115,
+    "name": "Perbincangan konkordans",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Modul",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Perbincangan modul",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Event": {
+    "id": 1728,
+    "name": "Event",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Event talk": {
+    "id": 1729,
+    "name": "Event talk",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}

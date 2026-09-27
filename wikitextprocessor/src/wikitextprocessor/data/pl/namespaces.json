@@ -1,0 +1,274 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Media",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Specjalna",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Dyskusja",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Wikisłownikarz",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wikipedysta",
+      "Wikipedystka",
+      "Wikisłownikarka"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Dyskusja wikisłownikarza",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Dyskusja wikipedystki",
+      "Dyskusja wikipedysty",
+      "Dyskusja wikisłownikarki"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wikisłownik",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WS",
+      "WT",
+      "Wiktionary"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Wikidyskusja",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Plik",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Grafika",
+      "Image"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Dyskusja pliku",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Dyskusja grafiki",
+      "Image talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "Dyskusja MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Szablon",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Dyskusja szablonu",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Pomoc",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Dyskusja pomocy",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Kategoria",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Dyskusja kategorii",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 100,
+    "name": "Aneks",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 101,
+    "name": "Dyskusja aneksu",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Indeks": {
+    "id": 102,
+    "name": "Indeks",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Dyskusja indeksu": {
+    "id": 103,
+    "name": "Dyskusja indeksu",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Portal": {
+    "id": 104,
+    "name": "Portal",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Dyskusja portalu": {
+    "id": 105,
+    "name": "Dyskusja portalu",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Moduł",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Dyskusja modułu",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}
