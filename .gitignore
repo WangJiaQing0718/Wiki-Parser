@@ -6,11 +6,7 @@ WikiData/*.xml.bz2
 
 # Local parser configuration, logs, environments, and generated output.
 Wikipedia-Parser-dev/config.json
-Wikipedia-Parser-dev/db_config.json
 Wikipedia-Parser-dev/logs/
-Wikipedia-Parser-dev/.venv/
-Wikipedia-Parser-dev/venv/
-Wikipedia-Parser-dev/output/
 
 # Python caches.
 __pycache__/
