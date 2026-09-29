@@ -8,7 +8,7 @@
     "schema": "dbo"
   },
   "source": {
-    "dump_file": "../WikiData/simplewiki-20260801-pages-articles.xml.bz2"
+    "dump_file": "../WikiData/simplewiki-20260901-pages-articles.xml.bz2"
   },
   "wtp": {
     "lang_code": "en",
