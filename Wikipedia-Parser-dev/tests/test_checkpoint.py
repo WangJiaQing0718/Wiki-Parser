@@ -21,7 +21,7 @@ from wikipedia_parser import build_parser, progress_total_for_source  # noqa: E4
 
 class CheckpointRecordTest(unittest.TestCase):
     def test_parse_error_is_persisted_as_completed_with_errors(self) -> None:
-        """A status writer must not turn a parse-error article into a clean completion."""
+        """验证：testparse错误为persistedascompleted带有errors的预期行为。"""
         records = terminal_records_for(
             "source-a",
             [
@@ -39,7 +39,7 @@ class CheckpointRecordTest(unittest.TestCase):
         )
 
     def test_filter_drops_only_terminal_revisions(self) -> None:
-        """A resumed scan must not submit known terminal revisions again."""
+        """验证：testfilterdrops仅终态revisions的预期行为。"""
         source = _ListSource(
             [
                 [{"revision_id": 1}],
@@ -54,7 +54,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertTrue(source.closed)
 
     def test_checkpoint_waits_for_raw_and_processed_commits(self) -> None:
-        """A parse result alone is insufficient: raw data must be durable too."""
+        """验证：test检查点waitsfor原始与已处理提交的预期行为。"""
         store = _RecordingStore()
         gate = CheckpointCoordinator(store)
         bundles = [{"revision_id": 7, "page_id": 70, "parse_error": None}]
@@ -66,7 +66,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertEqual([bundles], store.committed)
 
     def test_xml_resume_is_enabled_by_default(self) -> None:
-        """Normal XML invocations should resume without requiring a new flag."""
+        """验证：testxmlresume为enabledby默认的预期行为。"""
         args = build_parser().parse_args(
             ["dump.xml.bz2", "--config", "config.json"]
         )
@@ -75,7 +75,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertFalse(args.retry_errors)
 
     def test_xml_progress_has_no_false_max_pages_total(self) -> None:
-        """A physical XML scan limit cannot be a parse/write percentage denominator."""
+        """验证：testxml进度hasnofalsemaxpages总数的预期行为。"""
         self.assertIsNone(progress_total_for_source(is_xml=True, max_pages=20_000))
         self.assertEqual(
             20_000,
@@ -83,7 +83,7 @@ class CheckpointRecordTest(unittest.TestCase):
         )
 
     def test_pipeline_marks_checkpoint_after_both_writer_flushes(self) -> None:
-        """Removing either branch acknowledgement must leave this batch uncheckpointed."""
+        """验证：test流水线marks检查点之后both写入器flushes的预期行为。"""
         raw_writer = _RecordingWriter()
         processed_writer = _RecordingWriter()
         store = _RecordingStore()
@@ -105,7 +105,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertEqual(8, store.committed[0][0]["revision_id"])
 
     def test_pipeline_logs_parse_failures_without_printing_them_to_the_terminal(self) -> None:
-        """Removing the logger must not cause per-record failures to return to the terminal."""
+        """验证：test流水线logsparsefailures不含printingthemtothe终态的预期行为。"""
         writer = _RecordingWriter()
         logged: list[str] = []
         rows = [[{"revision_id": 9, "page_id": 90, "page_title": "Nine", "namespace": 0}]]
@@ -129,7 +129,7 @@ class CheckpointRecordTest(unittest.TestCase):
         terminal_write.assert_not_called()
 
     def test_pipeline_logs_failures_beyond_console_output_limit(self) -> None:
-        """The file log must retain every failure even after console detail is capped."""
+        """验证：test流水线logsfailuresbeyondconsole输出limit的预期行为。"""
         writer = _RecordingWriter()
         logged: list[str] = []
         rows = [[{"revision_id": number, "page_id": number, "page_title": str(number), "namespace": 0}
@@ -153,52 +153,65 @@ class CheckpointRecordTest(unittest.TestCase):
 
 class _ListSource:
     def __init__(self, batches: list[list[dict[str, int]]]) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batches = batches
         self.closed = False
 
     def __iter__(self):
+        """执行iter的处理逻辑。"""
         yield from self.batches
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.closed = True
 
 
 class _RecordingStore:
     def __init__(self) -> None:
+        """初始化对象所需的状态和资源。"""
         self.committed: list[list[dict[str, object]]] = []
 
     def mark_terminal(self, bundles: list[dict[str, object]]) -> None:
+        """执行mark终态的处理逻辑。"""
         self.committed.append(bundles)
 
 
 class _RecordingWriter:
     def __init__(self) -> None:
+        """初始化对象所需的状态和资源。"""
         self.rows: list[dict[str, object]] = []
         self.flushes = 0
 
     def add_rows(self, rows: list[dict[str, object]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         self.rows.extend(rows)
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         self.flushes += 1
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         pass
 
 
 class _ImmediateFuture:
     def __init__(self, result: BatchResult) -> None:
+        """初始化对象所需的状态和资源。"""
         self._result = result
 
     def result(self, timeout: float) -> BatchResult:
+        """执行result的处理逻辑。"""
         return self._result
 
 
 class _ImmediateExecutor:
     def __init__(self, *args: object, **kwargs: object) -> None:
+        """初始化对象所需的状态和资源。"""
         pass
 
     def submit(self, _fn: object, rows: list[dict[str, object]], _timeout: float) -> _ImmediateFuture:
+        """执行submit的处理逻辑。"""
         records = [
             {
                 "revision_id": row["revision_id"],
@@ -210,11 +223,13 @@ class _ImmediateExecutor:
         return _ImmediateFuture(BatchResult(records=records, failures=[]))
 
     def shutdown(self, **_kwargs: object) -> None:
+        """执行shutdown的处理逻辑。"""
         pass
 
 
 class _FailingExecutor(_ImmediateExecutor):
     def submit(self, _fn: object, rows: list[dict[str, object]], _timeout: float) -> _ImmediateFuture:
+        """执行submit的处理逻辑。"""
         records = [
             {
                 "revision_id": row["revision_id"],
@@ -233,6 +248,7 @@ class _FailingExecutor(_ImmediateExecutor):
 
 class _ManyFailingExecutor(_ImmediateExecutor):
     def submit(self, _fn: object, rows: list[dict[str, object]], _timeout: float) -> _ImmediateFuture:
+        """执行submit的处理逻辑。"""
         error = "paragraph_errors=1; wtp_errors=1"
         return _ImmediateFuture(
             BatchResult(

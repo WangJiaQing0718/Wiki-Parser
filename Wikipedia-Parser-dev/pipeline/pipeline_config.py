@@ -40,11 +40,13 @@ class OutputTableNames:
 
 
 def _resolve_path(value: str, base: Path) -> Path:
+    """执行解析路径的处理逻辑。"""
     path = Path(value)
     return (base / path).resolve() if not path.is_absolute() else path.resolve()
 
 
 def _as_object(value: object, field: str) -> Mapping[str, Any]:
+    """执行asobject的处理逻辑。"""
     if not isinstance(value, Mapping):
         raise ValueError(f"统一配置必须在 {field} 处包含一个对象")
     return value
@@ -56,6 +58,7 @@ def _with_wiki_prefix(table_name: str) -> str:
 
 
 def _validate_sqlserver(config: Mapping[str, Any]) -> dict[str, Any]:
+    """执行校验sqlserver的处理逻辑。"""
     result = dict(config)
     required = ("host", "user", "password", "database")
     missing = [key for key in required if not result.get(key)]

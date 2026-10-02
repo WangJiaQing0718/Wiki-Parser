@@ -23,7 +23,7 @@ from paragraph_extractor import Paragraph  # noqa: E402
 
 class SkipWtpSectionsTest(unittest.TestCase):
     def test_target_toc_roots_are_case_insensitive_and_include_subsections(self) -> None:
-        """Changing a target title's case or adding ':child' must not invoke WTP."""
+        """验证：test目标目录rootsarecaseinsensitive与includesubsections的预期行为。"""
         for toc in (
             "REFERENCES:Books",
             "Other Websites",
@@ -38,7 +38,7 @@ class SkipWtpSectionsTest(unittest.TestCase):
         self.assertFalse(should_skip_wtp_for_toc("History:Background"))
 
     def test_trigger_toc_skips_itself_and_all_later_sections(self) -> None:
-        """Once References appears, later sections must remain paragraph-only."""
+        """验证：testtrigger目录skipsitself与全部latersections的预期行为。"""
         row = {
             "revision_id": 1,
             "page_id": 2,
@@ -96,7 +96,7 @@ History paragraph.
         self.assertEqual("Lead", writer._buffer[0][5])
 
     def test_empty_skip_only_output_deletes_stale_wtp_and_sentence_rows(self) -> None:
-        """Reprocessing a skip-only article must not leave old derived rows behind."""
+        """验证：test空跳过仅输出deletesstalewtp与句子rows的预期行为。"""
         bundle = {
             "revision_id": 41,
             "page_id": 4,
@@ -130,6 +130,7 @@ History paragraph.
 
 
 def _skip_only_paragraph() -> Paragraph:
+    """执行跳过仅段落的处理逻辑。"""
     return Paragraph(
         section_no=1,
         paragraph_no=1,

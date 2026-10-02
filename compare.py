@@ -224,14 +224,14 @@ DB_CONFIG = {
     "port": 1433,
     "user": "sa",
     "password": "Wang342688",
-    "database": "Dev0921",
+    "database": "Dev",
     "schema": "dbo",
 }
 
-PARAGRAPH_TABLE = "wiki_paragraph_20260801"
-SENTENCE_TABLE = "wiki_sentence_20260801"
-LATEST_TABLE = "wiki_latest_20260801"
-INTERMEDIATE_TABLE = "wiki_wtp_intermediate_20260801"
+PARAGRAPH_TABLE = "wiki_paragraph_20260901"
+SENTENCE_TABLE = "wiki_sentence_20260901"
+LATEST_TABLE = "wiki_latest_20260901"
+INTERMEDIATE_TABLE = "wiki_wtp_intermediate_20260901"
 
 VIEW_OPTIONS = {
     "页面对照": "compare",

@@ -25,6 +25,7 @@ class RunLogSession:
             self._log_file.flush()
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self._log_file.close()
 
 

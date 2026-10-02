@@ -17,6 +17,7 @@ from sentence_extractor import extract_sentences  # noqa: E402
 
 class ListPipelineTest(unittest.TestCase):
     def test_lists_are_not_components_and_reach_sentence_processing(self) -> None:
+        """验证：testlistsare不components与reach句子processing的预期行为。"""
         source = "Intro:\n* First item.\n** Child item.\n* Second [[Target]].\n"
 
         wtp_input, components = extract_and_templatize(source, page_id=99)

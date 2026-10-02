@@ -1,23 +1,34 @@
-#!/usr/bin/env python3
 """
-组合流水线：一次性读取 XML 转储 -> 分叉到两个输出。
+Wikipedia 单遍 XML 转储解析流水线
 
-  XML dump ──单遍流──┬──▶ latest    (原始副本，始终写入)
-                     └──▶ multiprocess mwparserfromhell 解析──▶ processed
-                                                                   component_* 表
-                                                                   sections / paragraph / wtp_intermediate / sentence
+本模块提供一次性读取 Wikipedia XML（.xml.bz2）转储的入口，并将数据
+并行写入两条输出路径：
 
-与两步法（"先 XML->DB，然后读取 DB->process"）相比，
-此流程只读取一次 350MB 的转储文件，并且只解压一次。原始写入
-和组件写入沿着两条路径**并行运行**。
+  1. 原始表（latest） — 直接将每页的最新修订版记录写入 `wiki_latest_YYYYMMDD`表，结构固定，始终写入。
 
-- 原始表（latest）具有固定结构，由 `xml_source.SQLServerWriter` 写入。
-- 解析链（sections -> 每 section 组件 -> paragraphs -> sentences）写入
-  `processed`、八个组件表（infobox/table/independent_template/wikilinks/
-  external_links/file/image/ref）以及三个层次表
-  （sections / paragraph / wtp_intermediate / sentence）。
-- 编排核心 `engine._run_core`：批处理源（XML 流）+ 处理池解析 + 双重写入，
-  包括反压/超时/首错/清理加固。
+  2. 解析链 — 通过多进程池使用 mwparserfromhell 和 wikitextprocessor 对文章正文进行分段、提取组件（infobox、table、wikilinks 等）、生成段落和句子，最终写入 processed 表、8 类组件表以及层次表（sections / paragraph / wtp_intermediate / sentence）。
+
+核心编排函数 `engine._run_core` 将批 XML 源、多进程解析和写入器解耦，提供背压、超时检测、首错捕获以及 checkpoint‑based 断点续传等特性。
+
+设计要点
+--------
+* 单次读取——XML 文件仅被解压、流式读取一次；原始写入与解析并行进行，避免重复 I/O。
+* 进程隔离——每个 worker 进程独立创建 WTP/Lua 状态，不会跨进程共享可变解析器状态。
+* 失败可观测——解析异常不会中断全局导入，失败记录会被写入 processed 行的 `parse_error` 字段，并另行写入日志文件。
+* 断点续传——可选的 SQL Server checkpoint 表记录每个修订版的终态，支持 `--resume` 与 `--retry-errors` 参数。
+
+使用方法
+--------
+通过 ``wikipedia_parser.py`` 启动，配置文件 ``config.json`` 中填写 SQL Server 连接信息和转储路径。详见 ``README.md`` 中的参数说明。
+
+文件结构
+--------
+* ``wikipedia_parser.py``——CLI、配置加载、writer 编排。
+* ``pipeline/``——XML 来源、引擎核心、组件提取、WTP 整合、各类 writers。
+* ``tests/``——单元与回归测试。
+* ``docs/``——架构与开发指南。
+
+注意：首次运行前请确保 ``config.json`` 包含有效的 SQL Server 主机、用户名、密码及数据库名，且转储文件路径正确。
 """
 
 from __future__ import annotations
@@ -27,9 +38,7 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-# pipeline/下的模块：XML 侧（原始写入器 + 流式批处理源）和
-# 处理引擎。将其放在 sys.path 第一位，这样多进程 spawned 的 worker
-# 也可以通过模块名重新导入 engine（其中包含 process_batch）。
+# pipeline/下的模块：XML 侧（原始写入器 + 流式批处理源）和处理引擎。将其放在 sys.path 第一位，这样多进程 spawned 的 worker 也可以通过模块名重新导入 engine（其中包含 process_batch）。
 sys.path.insert(0, str(Path(__file__).resolve().parent / "pipeline"))
 import engine  # noqa: E402
 from checkpoint import SQLServerCheckpointStore, source_id_for_path  # noqa: E402
@@ -46,25 +55,29 @@ from xml_source import (  # noqa: E402
     XmlBatchSource,
 )
 
+"""为源类型返回一个可信的百分比分母。"""
 
+
+# XML 的 max_pages 限制物理 <page> 元素。命名空间过滤和逻辑恢复过滤稍后进行，因此它不是 Read/Parse/Write/Raw 处理的计数。让这些流进度条只计数和速率。
 def progress_total_for_source(*, is_xml: bool, max_pages: int | None) -> int | None:
-    """为源类型返回一个可信的百分比分母。"""
-    # XML 的 max_pages 限制物理 <page> 元素。命名空间过滤和
-    # 逻辑恢复过滤稍后进行，因此它不是 Read/Parse/Write/Raw
-    # 处理的计数。让这些流进度条只计数和速率。
     return None if is_xml else max_pages
 
 
+# 构建命令行参数解析器
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="单遍 XML 转储读取：写入原始、处理、组件、WTP 和层次表。XML 输出表名从转储文件名获得 _YYYYMMDD 后缀。"
     )
     p.add_argument(
-        "dump_file", type=Path, nargs="?",
+        "dump_file",
+        type=Path,
+        nargs="?",
         help="Wikipedia 转储路径 (*.xml.bz2)。省略时使用 source.dump_file。",
     )
     p.add_argument(
-        "--config", type=Path, required=True,
+        "--config",
+        type=Path,
+        required=True,
         help="包含源、sqlserver 和 wtp 设置的统一配置 JSON 文件。",
     )
     p.add_argument(
@@ -97,34 +110,60 @@ def build_parser() -> argparse.ArgumentParser:
         default="wiki_sentence",
         help="Sentences 表基础名称（每 sentence 一行；每 flush 在 revision_id 上删除然后插入）。默认 wiki_sentence。",
     )
-    p.add_argument("--workers", type=int, default=None, help="解析进程数；默认使用 CPU 核心数。")
-    p.add_argument("--chunk-size", type=int, default=500, help="每批页数。")
-    p.add_argument("--write-batch", type=int, default=500, help="两个表的批量 upsert 大小。")
-    p.add_argument("--max-pages", type=int, default=None, help="要处理的最大页数；省略则为全部。")
     p.add_argument(
-        "--namespace", type=int, action="append", default=None,
-        help="只处理这些命名空间（可重复）。默认：0（文章）。使用 --all-namespaces 处理所有。",
+        "--workers", type=int, default=None, help="解析进程数；默认使用 CPU 核心数。"
     )
-    p.add_argument("--all-namespaces", action="store_true", help="处理所有命名空间（覆盖 --namespace）。")
+    p.add_argument("--chunk-size", type=int, default=500, help="每批页数。")
     p.add_argument(
-        "--task-timeout", type=float, default=300.0,
+        "--write-batch", type=int, default=500, help="两个表的批量 upsert 大小。"
+    )
+    p.add_argument(
+        "--max-pages", type=int, default=None, help="要处理的最大页数；省略则为全部。"
+    )
+    p.add_argument(
+        "--namespace",
+        type=int,
+        action="append",
+        default=None,
+        help="只处理这些命名空间（可重复）。后续设置默认：0（文章）。使用 --all-namespaces 处理所有。",
+    )
+    p.add_argument(
+        "--all-namespaces",
+        action="store_true",
+        help="处理所有命名空间（覆盖 --namespace）。",
+    )
+    p.add_argument(
+        "--task-timeout",
+        type=float,
+        default=300.0,
         help="每批解析的最大等待时间（秒）；防止卡住/极慢的 worker 阻塞主流程；0 禁用。默认 300。",
     )
     p.add_argument(
-        "--db-timeout", type=float, default=300.0,
+        "--db-timeout",
+        type=float,
+        default=300.0,
         help="DB 查询超时（秒，两个表的读取/写入）；防止网络抖动/停滞服务器导致无限阻塞；0 禁用。默认 300。",
     )
-    p.add_argument("--db-login-timeout", type=float, default=60.0, help="DB 连接/登录超时（秒）。默认 60。")
     p.add_argument(
-        "--resume", action=argparse.BooleanOptionalAction, default=True,
+        "--db-login-timeout",
+        type=float,
+        default=60.0,
+        help="DB 连接/登录超时（秒）。默认 60。",
+    )
+    p.add_argument(
+        "--resume",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="对于 XML 输入，跳过 checkpoint 表中记录的终端修订版。默认：启用。",
     )
     p.add_argument(
-        "--retry-errors", action="store_true",
+        "--retry-errors",
+        action="store_true",
         help="与 XML 恢复一起，重新处理 completed_with_errors 修订版。",
     )
     p.add_argument(
-        "--checkpoint-table", default="wiki_parse_checkpoint",
+        "--checkpoint-table",
+        default="wiki_parse_checkpoint",
         help="持久化 XML 恢复状态的表基础名称；XML 输入附加 _YYYYMMDD。默认 wiki_parse_checkpoint。",
     )
     return p
@@ -137,8 +176,11 @@ def _run(
 ) -> None:
     import os
 
+    # 1. 校验配置文件和转储文件
     if not args.config.exists():
         parser.error(f"--config 文件不存在：{args.config}")
+
+    # 2. 加载统一配置，准备 SQL Server 和 WTP 设置
     unified_config = load_pipeline_config(args.config)
     config = unified_config.sqlserver
     wtp_settings = unified_config.wtp
@@ -149,7 +191,7 @@ def _run(
         configured_dump_file=configured_dump_file,
     )
 
-    # 参数边界验证：尽早给出友好的错误。
+    # 参数边界验证：尽早给出错误
     if not dump_file.exists():
         parser.error(f"转储文件不存在：{dump_file}")
     try:
@@ -172,6 +214,7 @@ def _run(
     if args.db_login_timeout < 1:
         parser.error("--db-login-timeout 必须 >= 1。")
 
+    # 3. 计算输出表名、工作者数量、命名空间等
     schema = config.get("schema", "dbo")
     workers = args.workers or os.cpu_count() or 4
     # None = 所有命名空间；默认保持只处理文章（命名空间 0）。
@@ -195,6 +238,7 @@ def _run(
     sentences_table = output_tables.sentences
     component_table_version_suffix = output_tables.suffix
 
+    # 4. 初始化各种写入器（原始表、处理表、组件表等）
     raw_config = {**config, "table": output_tables.raw}
     raw_writer = SQLServerWriter(
         raw_config,
@@ -203,52 +247,81 @@ def _run(
         login_timeout=args.db_login_timeout,
     )
     processed_writer = engine.ProcessedTextWriter(
-        config, schema, processed_table,
+        config,
+        schema,
+        processed_table,
         batch_size=args.write_batch,
-        db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+        db_timeout=args.db_timeout,
+        login_timeout=args.db_login_timeout,
     )
     component_writer = engine.ComponentWriter(
-        config, schema, batch_size=args.write_batch,
+        config,
+        schema,
+        batch_size=args.write_batch,
         table_prefix=output_tables.component_prefix,
         table_version_suffix=component_table_version_suffix,
-        db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+        db_timeout=args.db_timeout,
+        login_timeout=args.db_login_timeout,
     )
     sections_writer = engine.SectionsWriter(
-        config, schema, sections_table,
+        config,
+        schema,
+        sections_table,
         batch_size=args.write_batch,
-        db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+        db_timeout=args.db_timeout,
+        login_timeout=args.db_login_timeout,
     )
     paragraphs_writer = engine.ParagraphsWriter(
-        config, schema, paragraphs_table,
+        config,
+        schema,
+        paragraphs_table,
         batch_size=args.write_batch,
-        db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+        db_timeout=args.db_timeout,
+        login_timeout=args.db_login_timeout,
     )
     wtp_intermediate_writer = engine.WtpIntermediateWriter(
-        config, schema, wtp_intermediate_table,
+        config,
+        schema,
+        wtp_intermediate_table,
         batch_size=args.write_batch,
-        db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+        db_timeout=args.db_timeout,
+        login_timeout=args.db_login_timeout,
     )
     sentences_writer = engine.SentencesWriter(
-        config, schema, sentences_table,
+        config,
+        schema,
+        sentences_table,
         batch_size=args.write_batch,
-        db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+        db_timeout=args.db_timeout,
+        login_timeout=args.db_login_timeout,
     )
     sink = engine.FanoutWriter(
-        processed_writer, component_writer,
-        sections_writer, paragraphs_writer, wtp_intermediate_writer, sentences_writer,
+        processed_writer,
+        component_writer,
+        sections_writer,
+        paragraphs_writer,
+        wtp_intermediate_writer,
+        sentences_writer,
     )
 
+    # 5. 打开 XML 源，准备 checkpoint（断点续传）
     checkpoint_store = None
     source = XmlBatchSource(
-        dump_file, args.chunk_size, max_pages=args.max_pages,
+        dump_file,
+        args.chunk_size,
+        max_pages=args.max_pages,
         namespaces=namespaces,
     )
     source_name = str(dump_file)
     if args.resume:
         source_id = source_id_for_path(dump_file)
         checkpoint_store = SQLServerCheckpointStore(
-            config, schema, output_tables.checkpoint, source_id,
-            db_timeout=args.db_timeout, login_timeout=args.db_login_timeout,
+            config,
+            schema,
+            output_tables.checkpoint,
+            source_id,
+            db_timeout=args.db_timeout,
+            login_timeout=args.db_login_timeout,
         )
         terminal_ids = checkpoint_store.load_terminal_ids(
             retry_errors=args.retry_errors
@@ -263,8 +336,11 @@ def _run(
             terminal_ids,
         )
 
-    checkpoint = engine.CheckpointCoordinator(checkpoint_store) if checkpoint_store else None
+    checkpoint = (
+        engine.CheckpointCoordinator(checkpoint_store) if checkpoint_store else None
+    )
     try:
+        # 6. 调用引擎核心 _run_core 进行多进程并行解析
         articles, parse_failed = engine._run_core(
             source,
             sink,
@@ -280,9 +356,11 @@ def _run(
             failure_logger=failure_logger,
         )
     finally:
+        # 8. finally 块确保 checkpoint 数据库连接关闭
         if checkpoint_store is not None:
             checkpoint_store.close()
 
+    # 7. 解析结束后，打印日志统计（处理了多少篇、失败多少篇、写入了多少行）
     raw_table = output_tables.raw
     counts = component_writer.written
     comp_summary = ", ".join(f"{t}={counts[t]}" for t in engine.COMPONENT_TYPES)

@@ -17,7 +17,7 @@ from run_logging import start_run_log  # noqa: E402
 
 class RunLoggingTest(unittest.TestCase):
     def test_same_second_uses_a_distinct_log_file(self) -> None:
-        """Rapid repeated starts must not fail because timestamp and PID match."""
+        """验证：test相同secondusesadistinct日志文件的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             log_dir = Path(tmp) / "logs"
             first = start_run_log(
@@ -37,7 +37,7 @@ class RunLoggingTest(unittest.TestCase):
                 second.close()
 
     def test_run_log_mirrors_stdout_and_stderr_immediately(self) -> None:
-        """Only parse-failure records, not ordinary console output, belong in a log."""
+        """验证：test运行日志mirrorsstdout与stderrimmediately的预期行为。"""
         original_stdout, original_stderr = sys.stdout, sys.stderr
         with tempfile.TemporaryDirectory() as tmp:
             session = start_run_log(

@@ -53,6 +53,7 @@ class XmlBatchSource:
         max_pages: int | None = None,
         namespaces: set[int] | None = None,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.dump_path = dump_path
         self.chunk_size = chunk_size
         self.max_pages = max_pages
@@ -62,6 +63,7 @@ class XmlBatchSource:
         self._stream: Any = None
 
     def __iter__(self) -> Iterator[list[dict[str, Any]]]:
+        """执行iter的处理逻辑。"""
         if self.dump_path.suffix == ".bz2":
             self._stream = bz2.open(self.dump_path, mode="rb")
         else:
@@ -87,6 +89,7 @@ class XmlBatchSource:
             yield batch
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         if self._stream is not None:
             self._stream.close()
 
@@ -95,11 +98,13 @@ class SkippingBatchSource:
     """过滤终端修订版同时保持底层流顺序。"""
 
     def __init__(self, source: Any, terminal_revision_ids: set[int]) -> None:
+        """初始化对象所需的状态和资源。"""
         self.source = source
         self.terminal_revision_ids = terminal_revision_ids
         self.skipped = 0
 
     def __iter__(self) -> Iterator[list[dict[str, Any]]]:
+        """执行iter的处理逻辑。"""
         for batch in self.source:
             remaining = [
                 row for row in batch
@@ -110,6 +115,7 @@ class SkippingBatchSource:
                 yield remaining
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.source.close()
 
 
@@ -130,6 +136,7 @@ class SQLServerWriter:
         db_timeout: float = 0.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.schema = config.get("schema", "dbo")
         # `or` (不是 .get 默认) 以便 JSON 中显式 null 的"table"也回退。
         self.table = config.get("table") or "wiki_latest"
@@ -157,15 +164,18 @@ class SQLServerWriter:
 
     @staticmethod
     def _quote_ident(name: str) -> str:
+        """执行转义标识符的处理逻辑。"""
         if not name:
             raise ValueError("架构和表名必须非空。")
         return "[" + name.replace("]", "]]") + "]"
 
     @classmethod
     def _qualified_name(cls, schema: str, table: str) -> str:
+        """执行qualifiedname的处理逻辑。"""
         return f"{cls._quote_ident(schema)}.{cls._quote_ident(table)}"
 
     def _create_table_if_not_exists(self) -> None:
+        """执行创建数据表if不exists的处理逻辑。"""
         sql = f"""
         IF OBJECT_ID(N'{self._qualified_table}', N'U') IS NULL
         BEGIN
@@ -210,6 +220,7 @@ class SQLServerWriter:
         self._conn.commit()
 
     def write_record(self, record: dict[str, Any]) -> None:
+        """执行write记录的处理逻辑。"""
         row = (
             record["revision_id"],
             record["page_id"],
@@ -234,6 +245,7 @@ class SQLServerWriter:
             self.write_record(record)
 
     def _build_merge_sql(self) -> str:
+        """执行构建mergesql的处理逻辑。"""
         cols = ", ".join(self._COLUMNS)
         set_clause = ",\n                ".join(f"{c} = source.{c}" for c in self._COLUMNS)
         source_cols = ", ".join(f"source.{c}" for c in self._COLUMNS)
@@ -250,6 +262,7 @@ class SQLServerWriter:
         """
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not self._buffer:
             return
         # 分块多行 MERGE：每批一次往返而不是每行一次；
@@ -272,5 +285,6 @@ class SQLServerWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()

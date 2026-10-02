@@ -15,8 +15,10 @@ import wtp_integration  # noqa: E402
 
 class MwpAnalysisTest(unittest.TestCase):
     def test_validation_does_not_walk_templates(self) -> None:
+        """验证：testvalidationdoes不walk模板的预期行为。"""
         class Parsed:
             def filter_templates(self, recursive: bool = True) -> list[object]:
+                """执行filter模板的处理逻辑。"""
                 raise AssertionError("template traversal must not be called")
 
         original_parse = wtp_integration.mwparserfromhell.parse

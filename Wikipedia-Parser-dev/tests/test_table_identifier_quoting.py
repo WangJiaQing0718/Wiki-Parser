@@ -22,7 +22,7 @@ from checkpoint import SQLServerCheckpointStore  # noqa: E402
 
 class VersionedTableMetadataTest(unittest.TestCase):
     def test_hierarchical_unique_constraints_include_the_target_table_name(self) -> None:
-        """A new versioned table must not reuse another version's constraint name."""
+        """验证：testhierarchicaluniqueconstraintsincludethe目标数据表name的预期行为。"""
         writers = (
             (SectionsWriter, "wiki_sections_20260801", "rev_secno"),
             (ParagraphsWriter, "wiki_paragraph_20260801", "rev_secno_pno"),
@@ -42,7 +42,7 @@ class VersionedTableMetadataTest(unittest.TestCase):
                 )
 
     def test_hierarchical_writers_quote_versioned_names_in_metadata_lookups(self) -> None:
-        """Unescaped bracket prefixes make COL_LENGTH miss columns that CREATE TABLE added."""
+        """验证：testhierarchicalwriters转义带版本namesinmetadatalookups的预期行为。"""
         writers = (
             (SectionsWriter, "wiki_sections_[20260801]"),
             (WtpIntermediateWriter, "wiki_wtp_intermediate_[20260801]"),
@@ -62,7 +62,7 @@ class VersionedTableMetadataTest(unittest.TestCase):
                 )
 
     def test_checkpoint_uses_a_quoted_versioned_name_for_existence_checks(self) -> None:
-        """An unescaped checkpoint name causes a restart to attempt CREATE TABLE again."""
+        """验证：test检查点usesaquoted带版本nameforexistencechecks的预期行为。"""
         connection = _RecordingConnection()
         table = "wiki_parse_checkpoint_[20260801]"
 
@@ -86,26 +86,33 @@ _CONFIG = {
 
 class _RecordingConnection:
     def __init__(self) -> None:
+        """初始化对象所需的状态和资源。"""
         self.statements: list[str] = []
 
     def cursor(self) -> "_RecordingCursor":
+        """执行cursor的处理逻辑。"""
         return _RecordingCursor(self.statements)
 
     def commit(self) -> None:
+        """执行commit的处理逻辑。"""
         pass
 
 
 class _RecordingCursor:
     def __init__(self, statements: list[str]) -> None:
+        """初始化对象所需的状态和资源。"""
         self.statements = statements
 
     def __enter__(self) -> "_RecordingCursor":
+        """执行enter的处理逻辑。"""
         return self
 
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        """执行exit的处理逻辑。"""
         pass
 
     def execute(self, statement: str) -> None:
+        """执行execute的处理逻辑。"""
         self.statements.append(statement)
 
 

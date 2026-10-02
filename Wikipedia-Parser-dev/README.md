@@ -1,5 +1,31 @@
 # Wikipedia Parser
 
+## 1. 先看项目树
+
+```text
+Wikipedia-Parser-dev/
+├── wikipedia_parser.py          # 主命令入口
+├── config.example.json          # 统一配置模板
+├── pipeline/
+│   ├── pipeline_config.py       # 读取配置、生成版本化表名
+│   ├── wtp_database.py          # 为 XML 准备同版本 WTP SQLite DB
+│   ├── xml_source.py            # 流式 XML 读取和原始表写入
+│   ├── engine.py                # 解析、并发调度和所有派生 writer
+│   ├── section_extractor.py     # wikitext → section
+│   ├── paragraph_extractor.py   # section → paragraph
+│   ├── sentence_extractor.py    # paragraph → sentence
+│   ├── wtp_integration.py       # WTP/Lua 的 worker 级封装
+│   ├── checkpoint.py            # resume 状态持久化
+│   └── run_logging.py           # 本次运行的失败日志文件
+├── tests/                       # 单元和回归测试
+├── bench/                       # 性能基准脚本，不参与正常导入
+└── docs/                        # 架构、开发与学习文档
+```
+
+首次学习时，优先顺序是：`wikipedia_parser.py` → `pipeline_config.py` → `wtp_database.py` → `xml_source.py` → `engine.py` → 三个 extractor。不要一开始从 `engine.py` 顶部顺序读到末尾；它负责许多不同层面的工作。
+
+
+
 将 Wikipedia XML dump 单遍读取、解压和解析，并把原始版本记录与结构化解析结果并行写入 SQL Server。输入文件名中的八位日期会成为输出表名后缀，例如 `simplewiki-20260901-pages-articles.xml.bz2` 默认写入 `wiki_latest_20260901`、`wiki_processed_20260901` 和 `wiki_component_*_20260901`。
 
 ```mermaid

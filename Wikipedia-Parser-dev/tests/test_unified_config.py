@@ -19,7 +19,7 @@ from wikipedia_parser import build_parser  # noqa: E402
 
 class UnifiedConfigTest(unittest.TestCase):
     def test_config_option_is_required(self) -> None:
-        """The parser must have one mandatory unified configuration file."""
+        """验证：test配置选项为required的预期行为。"""
         args = build_parser().parse_args(["--config", "config.json"])
 
         self.assertEqual(Path("config.json"), args.config)
@@ -36,7 +36,7 @@ class UnifiedConfigTest(unittest.TestCase):
             build_parser().parse_args(["--db-config", "db.json"])
 
     def test_config_supplies_sqlserver_wtp_and_default_dump_without_db_path(self) -> None:
-        """A unified config must resolve all three assets relative to itself."""
+        """验证：test配置suppliessqlserverwtp与默认转储不含db路径的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             db_dir = root / "data"
@@ -68,7 +68,7 @@ class UnifiedConfigTest(unittest.TestCase):
             self.assertEqual(dump.resolve(), config.dump_file)
 
     def test_config_does_not_require_wtp_database_path(self) -> None:
-        """XML startup must be able to build an absent, matching WTP database."""
+        """验证：test配置does不requirewtp数据库路径的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_file = root / "config.json"
@@ -93,7 +93,7 @@ class UnifiedConfigTest(unittest.TestCase):
             self.assertEqual("en", config.wtp["lang_code"])
 
     def test_cli_dump_overrides_configured_dump(self) -> None:
-        """A one-off dump path must win over the configured XML path."""
+        """验证：testcli转储overridesconfigured转储的预期行为。"""
         configured = Path("configured.xml.bz2")
         override = Path("override.xml.bz2")
 
@@ -113,12 +113,13 @@ class UnifiedConfigTest(unittest.TestCase):
         )
 
     def test_source_table_option_is_not_accepted(self) -> None:
+        """验证：test数据源数据表选项为不accepted的预期行为。"""
         parser = build_parser()
         with self.assertRaises(SystemExit):
             parser.parse_args(["--config", "config.json", "--source-table", "simplewiki_latest"])
 
     def test_xml_dump_suffixes_every_output_table_with_the_dump_date(self) -> None:
-        """Every XML output table ends with the dump's eight-digit date."""
+        """验证：testxml转储suffixesevery输出数据表带有the转储date的预期行为。"""
         table_names_for_dump = getattr(
             pipeline_config, "output_table_names_for_dump", None
         )
@@ -153,7 +154,7 @@ class UnifiedConfigTest(unittest.TestCase):
         self.assertEqual("wiki_parse_checkpoint" + suffix, table_names.checkpoint)
 
     def test_xml_dump_without_an_eight_digit_date_is_rejected(self) -> None:
-        """A generic XML stem must not silently route data into an unsuffixed table."""
+        """验证：testxml转储不含aneightdigitdate为rejected的预期行为。"""
         table_names_for_dump = getattr(
             pipeline_config, "output_table_names_for_dump", None
         )

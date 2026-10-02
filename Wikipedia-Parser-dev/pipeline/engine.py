@@ -13,7 +13,7 @@ parse failures.
 
 Reference implementation: for each ns=0 article run the chain
   1. extract_sections      (section_extractor: split by == Title ==)
-  2. extract_and_templatize + remove_format_blocks per section
+  2. extract_and_templatize per section
      (7 component types: infobox / table / wikilinks / external_links /
       file / image / ref; skip-toc sections kept verbatim)
   3. extract_paragraphs    (paragraph_extractor: blank-line split + subsection toc)
@@ -123,99 +123,19 @@ _SKIP_WTP_TOC_ROOTS = _SKIP_COMPONENT_TOCS
 
 
 def should_skip_wtp_for_toc(toc: str | None) -> bool:
-    """Return whether a paragraph toc belongs to a paragraph-only section."""
+    """执行should跳过wtpfor目录的处理逻辑。"""
     if not toc:
         return False
     root = toc.split(":", 1)[0].strip().casefold()
     return root in _SKIP_WTP_TOC_ROOTS
 
-# These are purely formatting HTML blocks that may appear in raw wikitext.
-# They are removed after component extraction, before paragraph/sentence
-# splitting. The regex allows attributes to span multiple lines and lets
-# quoted attribute values contain `>`.
-# (Independent copy of API-Parser's _FORMAT_TAG_RE.)
-_FORMAT_TAG_RE = re.compile(
-    r"<\s*(?P<closing>/\s*)?(?P<tag>templatestyles|div)\b"
-    r"(?P<attrs>(?:\"[^\"]*\"|'[^']*'|[^>])*)>",
-    re.IGNORECASE | re.DOTALL,
-)
-
-# Placeholders emitted by extract_and_templatize:
-# ♣  ♣  ♣  <type>-<page_id>-<seq>♣  ♣  ♣
-_PLACEHOLDER_RE = re.compile(
-    r"♣  ♣  ♣  ((?:" + "|".join(COMPONENT_TYPES) + r")-[^♣\r\n]+?)♣  ♣  ♣"
-)
-
-
-def remove_format_blocks(wikitext: str | None) -> str:
-    """从 wikitext 中移除 ``templatestyles`` 和 ``div`` 格式块。
-
-    会删除完整成对的块（含内部内容）以及自闭合形式。其他 HTML 标签和普通文本
-    都保持不变。这里采用一个小型栈式扫描过程，能够处理嵌套格式块，
-    同时尽量避免留下孤立的闭合标签。
-    """
-    if not wikitext:
-        return ""
-
-    open_blocks: list[tuple[str, int]] = []
-    remove_spans: list[tuple[int, int]] = []
-
-    for match in _FORMAT_TAG_RE.finditer(wikitext):
-        tag = match.group("tag").lower()
-        if match.group("closing"):
-            # 对于结构正常的 HTML，闭合标签应匹配最近打开的目标标签。
-            # 倒序查找可以容忍不规范嵌套，同时避免误删无关文本。
-            matching_index = next(
-                (i for i in range(len(open_blocks) - 1, -1, -1)
-                 if open_blocks[i][0] == tag),
-                None,
-            )
-            if matching_index is None:
-                continue
-
-            start = open_blocks[matching_index][1]
-            # 闭合标签会结束对应块以及其内部嵌套的目标块。
-            # 下方会合并重叠区间，因此即便外层块不规范或未闭合，
-            # 也能尽量完整移除已闭合的内层块。
-            del open_blocks[matching_index:]
-            remove_spans.append((start, match.end()))
-            continue
-
-        attrs = match.group("attrs")
-        if attrs.rstrip().endswith("/"):
-            remove_spans.append((match.start(), match.end()))
-        else:
-            open_blocks.append((tag, match.start()))
-
-    # 未闭合的起始标签保持原样，仅移除完整闭合的块。
-    # 先合并重叠区间（例如成对块中的自闭合标签），
-    # 这样删除前一个区间时不会破坏后一个区间的偏移量。
-    merged_spans: list[tuple[int, int]] = []
-    for start, end in sorted(remove_spans):
-        if merged_spans and start <= merged_spans[-1][1]:
-            previous_start, previous_end = merged_spans[-1]
-            merged_spans[-1] = (previous_start, max(previous_end, end))
-        else:
-            merged_spans.append((start, end))
-
-    for start, end in reversed(merged_spans):
-        wikitext = wikitext[:start] + wikitext[end:]
-    return wikitext
-
-
 def _component_id(ctype: str, page_id: Any, seq: int) -> str:
-    """Per-page, per-type id embedded in text_process and stored as <type>_id."""
+    """执行组件id的处理逻辑。"""
     return f"{ctype}-{page_id}-{seq:04d}"
 
 
 def _protect_list_blocks(wikitext: str) -> tuple[str, dict[str, str]]:
-    """Temporarily replace contiguous wiki-list blocks with inert markers.
-
-    This is not component extraction: the raw blocks are restored before the
-    text is passed to WTP.  It simply prevents MWP's inline component pass from
-    extracting links, refs, files, etc. inside a list that sentence processing
-    must receive as an intact hierarchy.
-    """
+    """执行protect列表blocks的处理逻辑。"""
     lines = wikitext.splitlines(keepends=True)
     output: list[str] = []
     blocks: dict[str, str] = {}
@@ -241,12 +161,7 @@ def _protect_list_blocks(wikitext: str) -> tuple[str, dict[str, str]]:
 
 
 def _template_block_marker(template: Template) -> tuple[str, str] | None:
-    """Return (open|close, family) for a paired-template boundary.
-
-    Matching ignores case and separator characters, so ``Tree chart/start``
-    and ``MedalTableTop`` are recognized.  A bare closer such as ``End`` has
-    an empty family and closes the innermost open block (e.g. ``S-start``).
-    """
+    """执行模板blockmarker的处理逻辑。"""
     name = re.sub(r"[\s/_-]+", "", str(template.name).casefold())
     for suffix in _TEMPLATE_BLOCK_OPENERS:
         if name.endswith(suffix):
@@ -258,7 +173,7 @@ def _template_block_marker(template: Template) -> tuple[str, str] | None:
 
 
 def _outermost_template_block_ranges(nodes: Sequence[Any]) -> dict[int, int]:
-    """Return {opening-node-index: closing-node-index} for outermost blocks."""
+    """执行outermost模板blockranges的处理逻辑。"""
     stack: list[tuple[int, str]] = []
     pairs: list[tuple[int, int]] = []
     for index, node in enumerate(nodes):
@@ -288,17 +203,13 @@ def _outermost_template_block_ranges(nodes: Sequence[Any]) -> dict[int, int]:
 
 
 def _template_only_paragraph_node_indexes(nodes: Sequence[Any]) -> set[int]:
-    """Return template-node indexes in paragraphs made solely of top-level templates.
-
-    Paragraph breaks are recognized only in top-level Text nodes. This keeps
-    blank lines inside a multi-line template (such as an infobox) from splitting
-    its enclosing template-only paragraph.
-    """
+    """执行模板仅段落nodeindexes的处理逻辑。"""
     result: set[int] = set()
     paragraph_templates: list[int] = []
     has_non_template_content = False
 
     def finish_paragraph() -> None:
+        """执行finish段落的处理逻辑。"""
         nonlocal paragraph_templates, has_non_template_content
         if paragraph_templates and not has_non_template_content:
             result.update(paragraph_templates)
@@ -330,49 +241,12 @@ def extract_and_templatize(
     wikitext: str | None, page_id: Any,
     comps: dict[str, list[tuple[str, str]]] | None = None,
 ) -> tuple[str, dict[str, list[tuple[str, str]]]]:
-    """Extract components AND build the templatized text for one piece of wikitext
-    (a whole article, or one section when called per-section from build_bundle).
-
-    comps: optional pre-allocated accumulator for the extracted components. When
-        build_bundle calls this once per section, passing the SAME dict keeps the
-        per-type <seq> in the component id page-global (0001 = first of that type
-        on the page) instead of restarting per section. A fresh dict is created
-        when omitted.
-
-    Returns (text_process, components):
-      * text_process -- the wikitext with each extracted component replaced in place
-        by ``♣  ♣  ♣  <type>-<page_id>-<seq>♣  ♣  ♣``, EXCEPT
-        wikilinks, which are extracted to their table but left as raw ``[[...]]`` in
-        text_process; all other markup is kept verbatim. Only the placeholders from
-        component extraction are produced -- no extra newline or whitespace adjustment.
-      * components    -- {type: [(component_id, component_text), ...]} in document
-        order (seq 0001 = first of that type on the page), so the id embedded in
-        text_process matches the component row exactly.
-
-    Component types: infobox / table (blocks), independent_template (a complete
-    top-level template whose boundary lines contain no other content), and wikilinks /
-    external_links / file ([[File:...]]) / image ([[Image:...]]) / ref
-    (<ref>...</ref>) (inline).
-
-    Strict containment: a component nested inside a block (infobox / table) is
-    NOT extracted separately -- it stays as raw text inside that block. Likewise a
-    <ref> or File:/Image: link subsumes anything inside it (it is one node).
-
-    Done in two phases over the text (no per-node tree mutation -> fast):
-      1. block nodes (infobox templates, tables) -> replaced by their placeholder;
-      2. remaining inline nodes via a re-parse (the club-delimited placeholders
-         remain ordinary text -> untouched): <ref> -> ref, [[File:...]] -> file,
-         [[Image:...]] -> image, other [[...]] -> wikilinks (kept raw),
-         [url] -> external_links.
-
-    Wiki list blocks are deliberately *not* components.  They and their nested
-    markup remain in the WTP input so the sentence-stage list protection and
-    hierarchical rendering can operate on WTP output.
-    """
+    """执行提取与templatize的处理逻辑。"""
     if comps is None:
         comps = {t: [] for t in COMPONENT_TYPES}
 
     def take(ctype: str, text: str) -> str:
+        """执行take的处理逻辑。"""
         cid = _component_id(ctype, page_id, len(comps[ctype]) + 1)
         comps[ctype].append((cid, text))
         return f"♣  ♣  ♣  {cid}♣  ♣  ♣"
@@ -483,108 +357,10 @@ def _section_part(section: Any) -> str:
     return f"{heading}\n\n{body}" if body else heading
 
 
-def _legacy_build_bundle(row: Mapping[str, Any]) -> tuple[dict[str, Any], str | None]:
-    """Parse one source row into (bundle, error).
-
-    Chain (mirrors API-Parser's extract_worker; sentencex is imported lazily
-    inside extract_sentences so this module stays importable without it):
-      1. sections   -- extract_sections (split by == Title ==)
-      2. per section -- extract_and_templatize (shared accumulator keeps the
-         component id's <seq> page-global) + remove_format_blocks; placeholders
-         swallowed by a removed format block are dropped from the components so
-         rows always match text_process; sections whose toc is in
-         _SKIP_COMPONENT_TOCS are kept verbatim. Each heading section's original
-         ``== Title ==`` line is re-emitted into text_process so section
-         boundaries stay visible there (Summary has no heading).
-      3. paragraphs -- extract_paragraphs (blank-line split + subsection toc)
-      4. sentences  -- extract_sentences (sentencex; skip-toc kept whole)
-
-    bundle carries the processed-table fields (revision_id/page_id/page_title/
-    namespace/text_process/parse_error) plus components = {type: [(id, text), ...]}
-    and the three hierarchical row lists: sections / paragraphs / sentences
-    (plain dataclasses of int/str fields -- safe to pickle across processes).
-    error is None on success; on failure the bundle has empty components, empty
-    hierarchical lists and text_process="". Non-wikitext pages are kept verbatim
-    with no components and empty hierarchical lists.
-    """
-    try:
-        if row.get("model") in (None, "wikitext"):
-            # 1. 分节。
-            sections = extract_sections(row.get("content"), row["page_id"])
-
-            # 2. 逐节提取组件 + 删除格式化块；特殊节保持原样。
-            # remove_format_blocks 会整段删除 <div>/<templatestyles>，连同其中
-            # 已被替换成占位符的组件（阶段 2 的列表块按行提取、不感知标签嵌套，
-            # 会提取到 div 内部）。占位符已不在正文里，对应组件行必须同步丢弃，
-            # 否则成为无引用的孤儿行。
-            # 丢弃集合在整页所有 section 处理完后一次性生效：组件 <seq> 取自
-            # 提取时该类型列表的当前长度（len+1），若中途收缩，后续 section 会
-            # 复用仍在使用的序号，产生重复组件 id（触发 UNIQUE 约束 2627）。
-            components = {t: [] for t in COMPONENT_TYPES}
-            dropped_ids: set[str] = set()
-            all_text_parts: list[str] = []
-            skip_tocs: set[str] = set()
-            for section in sections:
-                toc_key = section.toc.strip().lower() if section.toc else ""
-                if toc_key in _SKIP_COMPONENT_TOCS:
-                    all_text_parts.append(_section_part(section))
-                    skip_tocs.add(toc_key)
-                    continue
-                sec_tp, _sec_comps = extract_and_templatize(
-                    section.text, row["page_id"], components
-                )
-                sec_tp_after = remove_format_blocks(sec_tp)
-                dropped_ids.update(
-                    set(_PLACEHOLDER_RE.findall(sec_tp))
-                    - set(_PLACEHOLDER_RE.findall(sec_tp_after))
-                )
-                section.text = sec_tp_after
-                all_text_parts.append(_section_part(section))
-            if dropped_ids:
-                for t in components:
-                    components[t] = [item for item in components[t]
-                                     if item[0] not in dropped_ids]
-            text_process = "\n\n".join(all_text_parts)
-
-            # 3./4. 分段 → 分句。
-            paragraphs = extract_paragraphs(sections, row["page_id"])
-            sentences = extract_sentences(
-                paragraphs, row["page_id"], skip_tocs=skip_tocs
-            )
-            error: str | None = None
-        else:
-            text_process = str(row.get("content") or "")
-            sections = []
-            paragraphs = []
-            sentences = []
-            components = {t: [] for t in COMPONENT_TYPES}
-            error = None
-    except Exception as exc:  # observable parse failure
-        text_process = ""
-        sections = []
-        paragraphs = []
-        sentences = []
-        components = {t: [] for t in COMPONENT_TYPES}
-        error = f"{type(exc).__name__}: {exc}"
-    bundle = {
-        "revision_id": row["revision_id"],
-        "page_id": row["page_id"],
-        "page_title": row["page_title"],
-        "namespace": row["namespace"],
-        "text_process": text_process,
-        "parse_error": error,
-        "components": components,
-        "sections": sections,
-        "paragraphs": paragraphs,
-        "sentences": sentences,
-    }
-    return bundle, error
-
-
 def build_bundle(
     row: Mapping[str, Any], expand_timeout: float = 15.0
 ) -> tuple[dict[str, Any], str | None, ParagraphRunStats]:
-    """Build an article bundle with MWP component placeholders before WTP."""
+    """执行构建文章结果的处理逻辑。"""
     stats = ParagraphRunStats()
     try:
         if row.get("model") in (None, "wikitext"):
@@ -681,7 +457,7 @@ def build_bundle(
 def process_batch(
     rows: list[dict[str, Any]], expand_timeout: float = 15.0
 ) -> BatchResult:
-    """Process a whole batch of source rows in a worker process; return a picklable BatchResult of bundles."""
+    """执行处理批次的处理逻辑。"""
     records: list[dict[str, Any]] = []
     failures: list[tuple[Any, str]] = []
     stats = ParagraphRunStats()
@@ -708,24 +484,26 @@ def process_batch(
 # Generic engine (usually no changes needed): config, connection, orchestration.
 # =========================================================================== #
 def quote_ident(name: str) -> str:
+    """执行转义标识符的处理逻辑。"""
     if not name:
         raise ValueError("Identifier must be non-empty.")
     return "[" + name.replace("]", "]]") + "]"
 
 
 def qualified_name(schema: str, table: str) -> str:
+    """执行qualifiedname的处理逻辑。"""
     return f"{quote_ident(schema)}.{quote_ident(table)}"
 
 
 def unique_constraint_name(table: str, key_suffix: str) -> str:
-    """Return a schema-unique, safely quoted name for a table's UNIQUE key."""
+    """执行uniqueconstraintname的处理逻辑。"""
     return quote_ident(f"UQ_{table}_{key_suffix}")
 
 
 def drop_legacy_columns_sql(
     qualified: str, object_name: str, columns: Sequence[str]
 ) -> str:
-    """Drop named columns and any SQL Server default constraints they own."""
+    """执行drop旧版columnssql的处理逻辑。"""
     statements: list[str] = []
     for index, column in enumerate(columns):
         constraint_var = f"@default_constraint_{index}"
@@ -755,12 +533,7 @@ def drop_legacy_columns_sql(
 
 
 def terminate_workers(executor: ProcessPoolExecutor) -> None:
-    """Forcibly reclaim the pool's workers (a wedged task cannot be joined gracefully), best-effort.
-
-    The stdlib ProcessPoolExecutor cannot cancel an already-running task; only
-    killing the process reclaims a worker held by a wedged task, and avoids
-    shutdown(wait=True) hanging along with it.
-    """
+    """执行terminateworkers的处理逻辑。"""
     procs = getattr(executor, "_processes", None)
     if not procs:
         return
@@ -781,6 +554,7 @@ def connect(
     # blocking forever on network jitter or a stalled server (task-timeout only
     # covers parsing, not DB reads/writes); 0 = unlimited.
     # login_timeout = connect/login timeout (seconds), prevents connect itself from hanging.
+    """执行connect的处理逻辑。"""
     return pymssql.connect(
         server=config["host"],
         port=int(config.get("port", 1433)),
@@ -812,6 +586,7 @@ class ProcessedTextWriter:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
         self.object_name = self.qualified
@@ -823,6 +598,7 @@ class ProcessedTextWriter:
         self._create_table()
 
     def _create_table(self) -> None:
+        """执行创建数据表的处理逻辑。"""
         with self._conn.cursor() as cur:
             cur.execute(f"""
             IF OBJECT_ID(N'{self.qualified}', N'U') IS NULL
@@ -841,12 +617,14 @@ class ProcessedTextWriter:
         self._conn.commit()
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
             self._buffer.append(tuple(b[c] for c in self._COLS))
         if len(self._buffer) >= self.batch_size:
             self.flush()
 
     def _build_merge_sql(self) -> str:
+        """执行构建mergesql的处理逻辑。"""
         cols = ", ".join(self._COLS)
         set_clause = ",\n                ".join(f"{c} = source.{c}" for c in self._COLS)
         source_cols = ", ".join(f"source.{c}" for c in self._COLS)
@@ -863,6 +641,7 @@ class ProcessedTextWriter:
         """
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not self._buffer:
             return
         # Chunked multi-row MERGE: one round trip per chunk instead of one per
@@ -885,6 +664,7 @@ class ProcessedTextWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()
 
@@ -915,6 +695,7 @@ class ComponentWriter:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batch_size = batch_size
         self._table_names = {
             t: f"{table_prefix}_{t}{table_version_suffix}" for t in COMPONENT_TYPES
@@ -934,6 +715,7 @@ class ComponentWriter:
         self._create_tables()
 
     def _create_tables(self) -> None:
+        """执行创建tables的处理逻辑。"""
         with self._conn.cursor() as cur:
             for t, q in self._tables.items():
                 # Constraint/index names are database-scoped, hence the table name inside.
@@ -956,6 +738,7 @@ class ComponentWriter:
         self._conn.commit()
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
             self._pending_pages.add(b["page_id"])
             for t, items in b["components"].items():
@@ -966,6 +749,7 @@ class ComponentWriter:
             self.flush()
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not any(self._buffers.values()) and not self._pending_pages:
             return
         try:
@@ -999,6 +783,7 @@ class ComponentWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()
 
@@ -1019,8 +804,7 @@ def _delete_by_keys(
     keys: Iterable[Any],
     chunk_size: int = 500,
 ) -> None:
-    """DELETE all rows whose key column is in `keys`, in chunks of at most
-    chunk_size parameters (one statement per chunk)."""
+    """执行deletebykeys的处理逻辑。"""
     keys = sorted(set(keys))
     if not keys:
         return
@@ -1036,8 +820,7 @@ def _delete_by_keys(
 def _delete_by_revision_ids(
     conn: Any, qualified: str, buffer: list[tuple[Any, ...]], chunk_size: int = 500
 ) -> None:
-    """DELETE all rows of the revisions present in the buffer (revision_id is
-    the first buffer column), in chunks of at most chunk_size parameters."""
+    """执行deletebyrevisionids的处理逻辑。"""
     _delete_by_keys(conn, qualified, "revision_id", {row[0] for row in buffer}, chunk_size)
 
 
@@ -1047,10 +830,7 @@ def _insert_multirow(
     columns: Sequence[str],
     rows: list[tuple[Any, ...]],
 ) -> None:
-    """INSERT rows via multi-row VALUES statements: one round trip per chunk
-    instead of one per row (executemany sends every row separately). The chunk
-    size keeps each statement below SQL Server's 2100-parameter limit. The
-    caller owns the transaction (commit / rollback)."""
+    """执行insertmultirow的处理逻辑。"""
     ncols = len(columns)
     rows_per_stmt = max(1, 2000 // ncols)
     col_list = ", ".join(f"[{c}]" for c in columns)
@@ -1082,6 +862,7 @@ class SectionsWriter:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
         self.object_name = self.qualified
@@ -1094,6 +875,7 @@ class SectionsWriter:
         self._create_table()
 
     def _create_table(self) -> None:
+        """执行创建数据表的处理逻辑。"""
         with self._conn.cursor() as cur:
             cur.execute(f"""
             IF OBJECT_ID(N'{self.qualified}', N'U') IS NULL
@@ -1117,6 +899,7 @@ class SectionsWriter:
         self._conn.commit()
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
             for s in b["sections"]:
                 self._buffer.append(
@@ -1127,6 +910,7 @@ class SectionsWriter:
             self.flush()
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not self._buffer:
             return
         try:
@@ -1142,6 +926,7 @@ class SectionsWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()
 
@@ -1163,6 +948,7 @@ class ParagraphsWriter:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
         self.object_name = self.qualified
@@ -1175,6 +961,7 @@ class ParagraphsWriter:
         self._create_table()
 
     def _create_table(self) -> None:
+        """执行创建数据表的处理逻辑。"""
         with self._conn.cursor() as cur:
             cur.execute(f"""
             IF OBJECT_ID(N'{self.qualified}', N'U') IS NULL
@@ -1202,6 +989,7 @@ class ParagraphsWriter:
         self._conn.commit()
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
             for p in b["paragraphs"]:
                 self._buffer.append(
@@ -1213,6 +1001,7 @@ class ParagraphsWriter:
             self.flush()
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not self._buffer:
             return
         try:
@@ -1228,6 +1017,7 @@ class ParagraphsWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()
 
@@ -1249,6 +1039,7 @@ class WtpIntermediateWriter:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
         self.object_name = self.qualified
@@ -1262,6 +1053,7 @@ class WtpIntermediateWriter:
         self._create_table()
 
     def _create_table(self) -> None:
+        """执行创建数据表的处理逻辑。"""
         with self._conn.cursor() as cur:
             cur.execute(f"""
             IF OBJECT_ID(N'{self.qualified}', N'U') IS NULL
@@ -1294,6 +1086,7 @@ class WtpIntermediateWriter:
         self._conn.commit()
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
             self._pending_revision_ids.add(b["revision_id"])
             for p in b["paragraphs"]:
@@ -1308,6 +1101,7 @@ class WtpIntermediateWriter:
             self.flush()
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not self._buffer and not self._pending_revision_ids:
             return
         try:
@@ -1325,6 +1119,7 @@ class WtpIntermediateWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()
 
@@ -1344,6 +1139,7 @@ class SentencesWriter:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.batch_size = batch_size
         self.qualified = qualified_name(schema, table)
         self.object_name = self.qualified
@@ -1357,6 +1153,7 @@ class SentencesWriter:
         self._create_table()
 
     def _create_table(self) -> None:
+        """执行创建数据表的处理逻辑。"""
         with self._conn.cursor() as cur:
             cur.execute(f"""
             IF OBJECT_ID(N'{self.qualified}', N'U') IS NULL
@@ -1383,6 +1180,7 @@ class SentencesWriter:
         self._conn.commit()
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
             self._pending_revision_ids.add(b["revision_id"])
             for s in b["sentences"]:
@@ -1395,6 +1193,7 @@ class SentencesWriter:
             self.flush()
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         if not self._buffer and not self._pending_revision_ids:
             return
         try:
@@ -1412,6 +1211,7 @@ class SentencesWriter:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self.flush()
         self._conn.close()
 
@@ -1421,17 +1221,21 @@ class SentencesWriter:
 # --------------------------------------------------------------------------- #
 class FanoutWriter:
     def __init__(self, *writers: Any) -> None:
+        """初始化对象所需的状态和资源。"""
         self._writers = writers
 
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         for w in self._writers:
             w.add_rows(bundles)
 
     def flush(self) -> None:
+        """将当前缓冲的数据写入目标位置。"""
         for w in self._writers:
             w.flush()
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         first_err: BaseException | None = None
         for w in self._writers:  # close every sink even if one fails
             try:
@@ -1447,12 +1251,14 @@ class CheckpointCoordinator:
     """Mark a batch terminal only after raw and processed outputs both commit."""
 
     def __init__(self, store: Any) -> None:
+        """初始化对象所需的状态和资源。"""
         self._store = store
         self._lock = threading.Lock()
         self._raw_committed: set[int] = set()
         self._processed_committed: dict[int, list[dict[str, Any]]] = {}
 
     def raw_committed(self, batch_id: int) -> None:
+        """执行原始committed的处理逻辑。"""
         with self._lock:
             self._raw_committed.add(batch_id)
             self._mark_if_ready(batch_id)
@@ -1460,11 +1266,13 @@ class CheckpointCoordinator:
     def processed_committed(
         self, batch_id: int, bundles: list[dict[str, Any]]
     ) -> None:
+        """执行已处理committed的处理逻辑。"""
         with self._lock:
             self._processed_committed[batch_id] = bundles
             self._mark_if_ready(batch_id)
 
     def _mark_if_ready(self, batch_id: int) -> None:
+        """执行markifready的处理逻辑。"""
         bundles = self._processed_committed.get(batch_id)
         if batch_id not in self._raw_committed or bundles is None:
             return
@@ -1502,19 +1310,7 @@ def _run_core(
     checkpoint: CheckpointCoordinator | None = None,
     failure_logger: Callable[[str], None] | None = None,
 ) -> tuple[int, int]:
-    """Generic pipeline core: batch source -> multiprocess parse -> write processed table, optionally writing the raw table too (fan-out).
-
-    batches: an iterable that yields "batches (list of row-dicts)" (in this
-      project it comes from XmlBatchSource). Each row-dict has at least the keys
-      process_batch needs (content / primary key / ...); if raw_writer is given,
-      the same batch is also written verbatim to the raw table.
-    processed_writer: processed-result writer (add_rows / close); e.g. ComponentWriter.
-    raw_writer: optional. Raw-record writer (add_rows / close), a second output path parallel to parsing.
-    total: progress-bar total; pass None for a streaming source of unknown size (shows count + rate only).
-    source_close: close the batch source (file stream, etc.).
-    checkpoint: optional two-writer commit barrier for XML resume state.
-    Returns (rows written to processed table, parse-failure rows).
-    """
+    """执行运行核心的处理逻辑。"""
     if checkpoint is not None and raw_writer is None:
         raise ValueError("A checkpoint requires a raw writer acknowledgement.")
     # Independent speed bars: Read / Parse / Write (+ Raw when raw writing is enabled).
@@ -1555,13 +1351,14 @@ def _run_core(
     wtp_error_total = 0
 
     def fail(exc: BaseException) -> None:
+        """执行失败的处理逻辑。"""
         with error_lock:
             if not first_error:  # record only the first error, ignore later ones
                 first_error.append(exc)
         stop.set()
 
     def safe_put(q: "queue.Queue[Any]", item: Any) -> bool:
-        """Put with backpressure; give up immediately and return False once stop is set."""
+        """执行安全put的处理逻辑。"""
         while not stop.is_set():
             try:
                 q.put(item, timeout=POLL)
@@ -1571,7 +1368,7 @@ def _run_core(
         return False
 
     def safe_get(q: "queue.Queue[Any]") -> Any:
-        """Get; return _SENTINEL once stop is set so the consumer wraps up and exits."""
+        """执行安全get的处理逻辑。"""
         while not stop.is_set():
             try:
                 return q.get(timeout=POLL)
@@ -1580,6 +1377,7 @@ def _run_core(
         return _SENTINEL
 
     def reader_loop() -> None:
+        """执行readerloop的处理逻辑。"""
         submitted = 0
         next_batch_id = 0
         try:
@@ -1618,8 +1416,7 @@ def _run_core(
                 safe_put(raw_q, _SENTINEL)
 
     def wait_result(fut: Any) -> Any:
-        """Await a single batch's result: poll stop and apply task_timeout to the whole batch.
-        Returns _SENTINEL while stop is set; raises FuturesTimeout past task_timeout."""
+        """执行等待result的处理逻辑。"""
         start = time.monotonic()
         while not stop.is_set():
             try:
@@ -1630,6 +1427,7 @@ def _run_core(
         return _SENTINEL
 
     def collector_loop() -> None:
+        """执行collectorloop的处理逻辑。"""
         nonlocal failed_total, paragraph_total, paragraph_succeeded
         nonlocal paragraph_failed, wtp_error_total
         try:
@@ -1674,6 +1472,7 @@ def _run_core(
             safe_put(write_q, _SENTINEL)
 
     def writer_loop() -> None:
+        """执行写入器loop的处理逻辑。"""
         try:
             while True:
                 item = safe_get(write_q)
@@ -1689,6 +1488,7 @@ def _run_core(
             fail(exc)
 
     def raw_writer_loop() -> None:
+        """执行原始写入器loop的处理逻辑。"""
         try:
             while True:
                 item = safe_get(raw_q)
@@ -1713,7 +1513,7 @@ def _run_core(
     cleanup_errors: list[BaseException] = []
 
     def _safe(action: Callable[[], Any]) -> None:
-        """Run one cleanup action; on failure only collect it, never raise -- avoids masking the primary exception / interrupting other cleanup."""
+        """执行安全的处理逻辑。"""
         try:
             action()
         except BaseException as exc:  # noqa: BLE001

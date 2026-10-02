@@ -26,18 +26,22 @@ WORKERS = int(sys.argv[3]) if len(sys.argv) > 3 else 4
 
 class SleepWriter:
     def __init__(self, ms_per_batch: float) -> None:
+        """初始化对象所需的状态和资源。"""
         self.sec = ms_per_batch / 1000.0
         self.n = 0
 
     def add_rows(self, rows) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         time.sleep(self.sec)  # simulate one batch upsert's DB round trip
         self.n += len(rows)
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         pass
 
 
 def run(latency_ms: float) -> float:
+    """执行运行的处理逻辑。"""
     src = XmlBatchSource(DUMP, chunk_size=500, max_pages=N)
     t = time.monotonic()
     p, _ = engine._run_core(

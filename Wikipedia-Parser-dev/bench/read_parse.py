@@ -25,16 +25,20 @@ N = int(sys.argv[2]) if len(sys.argv) > 2 else int(os.environ.get("N", "6000"))
 
 class Null:
     def __init__(self) -> None:
+        """初始化对象所需的状态和资源。"""
         self.n = 0
 
     def add_rows(self, rows) -> None:
+        """接收一批数据并追加到内部缓冲区。"""
         self.n += len(rows)
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         pass
 
 
 def full(workers: int) -> tuple[int, float]:
+    """执行full的处理逻辑。"""
     src = XmlBatchSource(DUMP, chunk_size=500, max_pages=N)
     t = time.monotonic()
     p, _ = engine._run_core(

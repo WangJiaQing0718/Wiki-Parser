@@ -38,6 +38,7 @@ def terminal_records_for(
 
 
 def quote_ident(name: str) -> str:
+    """执行转义标识符的处理逻辑。"""
     if not name:
         raise ValueError("标识符必须非空。")
     return "[" + name.replace("]", "]]" ) + "]"
@@ -56,6 +57,7 @@ class SQLServerCheckpointStore:
         db_timeout: float = 300.0,
         login_timeout: float = 60.0,
     ) -> None:
+        """初始化对象所需的状态和资源。"""
         self.source_id = source_id
         self.schema = schema
         self.table = table
@@ -70,6 +72,7 @@ class SQLServerCheckpointStore:
         self._create_table_if_needed()
 
     def _create_table_if_needed(self) -> None:
+        """执行创建数据表ifneeded的处理逻辑。"""
         sql = f"""
         IF OBJECT_ID(N'{self._object_name}', N'U') IS NULL
         BEGIN
@@ -89,6 +92,7 @@ class SQLServerCheckpointStore:
         self._conn.commit()
 
     def load_terminal_ids(self, *, retry_errors: bool) -> set[int]:
+        """执行加载终态ids的处理逻辑。"""
         statuses = [COMPLETED]
         if not retry_errors:
             statuses.append(COMPLETED_WITH_ERRORS)
@@ -102,6 +106,7 @@ class SQLServerCheckpointStore:
             return {int(row[0]) for row in cursor.fetchall()}
 
     def mark_terminal(self, bundles: list[dict[str, Any]]) -> None:
+        """执行mark终态的处理逻辑。"""
         rows = terminal_records_for(self.source_id, bundles)
         if not rows:
             return
@@ -130,4 +135,5 @@ class SQLServerCheckpointStore:
             raise
 
     def close(self) -> None:
+        """刷新未写入的数据并释放相关资源。"""
         self._conn.close()

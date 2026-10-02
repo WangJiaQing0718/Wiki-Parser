@@ -26,7 +26,6 @@ _REF_PLACEHOLDER_RE = re.compile(
 )
 # 列表标记正则: 匹配以 * # ; : 开头的行。列表不会作为组件提取，
 # 因而这些行首标记会保留到分句阶段；MULTILINE 让 ^ 匹配段落内的每一行开头。
-_LIST_MARKER_RE = re.compile(r"^[*#;:]", re.MULTILINE)
 _LIST_LINE_RE = re.compile(
     r"^[ \t]*(?P<markers>[*#;:]+)[ \t]*(?P<content>.*?)[ \t]*$"
 )
@@ -62,11 +61,6 @@ def _process_wikilinks(text: str) -> str:
 def _remove_ref_placeholders(text: str) -> str:
     """在分句前移除已提取出来的参考文献占位符。"""
     return _REF_PLACEHOLDER_RE.sub("", text)
-
-
-def _remove_list_markers(text: str) -> str:
-    """在分句前移除 wikitext 列表标记（行首的 ``* # ; :``）。"""
-    return _LIST_MARKER_RE.sub("", text)
 
 
 @dataclass
@@ -185,12 +179,6 @@ def _restore_list_tokens(text: str, replacements: dict[str, str]) -> str:
     for token, rendered in replacements.items():
         text = text.replace(token, rendered)
     return text
-
-
-def _collapse_list_blocks(text: str) -> str:
-    """为不需要分句保护的调用方直接折叠列表块。"""
-    prepared, replacements = _prepare_lists_for_segmentation(text)
-    return _restore_list_tokens(prepared, replacements)
 
 
 def _is_list_only_text(text: str) -> bool:

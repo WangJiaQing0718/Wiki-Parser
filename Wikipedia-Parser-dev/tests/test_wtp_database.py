@@ -30,6 +30,7 @@ WIKIDATA_SCRIPT = (
 
 
 def _load_wikidata_script() -> object:
+    """执行加载wikidatascript的处理逻辑。"""
     spec = importlib.util.spec_from_file_location("build_wtp_database", WIKIDATA_SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -39,7 +40,7 @@ def _load_wikidata_script() -> object:
 
 class WtpDatabaseTest(unittest.TestCase):
     def test_wikidata_script_resolves_the_given_filename(self) -> None:
-        """The WikiData helper must send its named XML file to the WTP builder."""
+        """验证：testwikidatascriptresolvesthegivenfilename的预期行为。"""
         self.assertTrue(WIKIDATA_SCRIPT.is_file())
         script = _load_wikidata_script()
         with tempfile.TemporaryDirectory() as tmp:
@@ -61,12 +62,12 @@ class WtpDatabaseTest(unittest.TestCase):
             self.assertEqual(f"WTP database: {db_path}\n", output.getvalue())
 
     def test_uncompressed_xml_is_rejected_before_build(self) -> None:
-        """WTP dump import only accepts bzip2-compressed XML inputs."""
+        """验证：testuncompressedxml为rejected之前构建的预期行为。"""
         with self.assertRaisesRegex(ValueError, "xml.bz2"):
             wtp_database_path_for_dump(Path("simplewiki-20260801-pages-articles.xml"))
 
     def test_build_closes_wtp_connection_when_dump_import_fails(self) -> None:
-        """An import error must not leave the newly opened SQLite connection open."""
+        """验证：test构建closeswtp连接when转储importfails的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             db_path = Path(tmp) / "simplewiki-20260801-pages-articles-wtp-full.db"
@@ -75,10 +76,12 @@ class WtpDatabaseTest(unittest.TestCase):
             created_paths: list[Path] = []
 
             def create_wtp(*_args: object, db_path: Path, **_kwargs: object) -> Mock:
+                """执行创建wtp的处理逻辑。"""
                 created_paths.append(db_path)
                 return wtp
 
             def fail_import(*_args: object, **_kwargs: object) -> None:
+                """执行失败import的处理逻辑。"""
                 created_paths[0].touch()
                 raise RuntimeError("import failed")
 
@@ -97,7 +100,7 @@ class WtpDatabaseTest(unittest.TestCase):
             self.assertFalse(created_paths[0].exists())
 
     def test_missing_matching_database_is_built_from_dump(self) -> None:
-        """Missing versioned DB must be built before workers open it."""
+        """验证：test缺失matching数据库为builtfrom转储的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             dump.touch()
@@ -105,6 +108,7 @@ class WtpDatabaseTest(unittest.TestCase):
             captured: dict[str, object] = {}
 
             def build(path: Path, db_path: Path, **kwargs: object) -> None:
+                """执行构建的处理逻辑。"""
                 captured.update(path=path, db_path=db_path, **kwargs)
                 db_path.touch()
 
@@ -121,7 +125,7 @@ class WtpDatabaseTest(unittest.TestCase):
             self.assertEqual({0, 10, 828}, captured["namespace_ids"])
 
     def test_existing_matching_database_is_reused(self) -> None:
-        """An existing matching DB must not trigger a second dump import."""
+        """验证：test已有matching数据库为reused的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             dump.touch()
@@ -135,7 +139,7 @@ class WtpDatabaseTest(unittest.TestCase):
             build.assert_not_called()
 
     def test_legacy_configured_database_path_is_ignored(self) -> None:
-        """The path is derived from the dump even if an old config keeps db_path."""
+        """验证：test旧版configured数据库路径为ignored的预期行为。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             dump.touch()
@@ -143,6 +147,7 @@ class WtpDatabaseTest(unittest.TestCase):
             expected = wtp_database_path_for_dump(dump.resolve())
 
             def build(path: Path, db_path: Path, **kwargs: object) -> None:
+                """执行构建的处理逻辑。"""
                 self.assertEqual(dump.resolve(), path)
                 self.assertEqual(expected, db_path)
                 db_path.touch()

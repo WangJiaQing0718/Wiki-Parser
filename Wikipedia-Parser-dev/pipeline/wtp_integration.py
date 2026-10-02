@@ -50,6 +50,7 @@ def initialize_wtp_worker(settings: Mapping[str, Any] | None) -> None:
 
 
 def begin_page(page_title: str) -> None:
+    """执行begin页面的处理逻辑。"""
     if _WTP is None:
         raise RuntimeError("WTP worker 未初始化")
     _WTP.start_page(page_title)
@@ -93,6 +94,7 @@ def expand_to_text(wikitext: str, timeout: float) -> tuple[str, str, str | None]
 
 
 def _remove_file_links(text: str) -> str:
+    """执行移除文件links的处理逻辑。"""
     pattern = re.compile(r"\[\[\s*(?:File|Image):", flags=re.I)
     while (match := pattern.search(text)) is not None:
         start, pos, depth = match.start(), match.end(), 1
@@ -141,11 +143,13 @@ class _VisibleTextParser(HTMLParser):
     skip_tags = frozenset({"style", "script", "ref", "references", "templatestyles"})
 
     def __init__(self) -> None:
+        """初始化对象所需的状态和资源。"""
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
         self.skip_stack: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """执行处理starttag的处理逻辑。"""
         tag = tag.casefold()
         classes = dict(attrs).get("class", "") or ""
         if tag in self.skip_tags or "error" in classes.casefold().split():
@@ -154,6 +158,7 @@ class _VisibleTextParser(HTMLParser):
             self.parts.append("\n" if tag in self.block_tags or tag == "br" else "")
 
     def handle_endtag(self, tag: str) -> None:
+        """执行处理endtag的处理逻辑。"""
         tag = tag.casefold()
         if self.skip_stack:
             if tag == self.skip_stack[-1]:
@@ -162,6 +167,7 @@ class _VisibleTextParser(HTMLParser):
             self.parts.append("\n")
 
     def handle_data(self, data: str) -> None:
+        """执行处理数据的处理逻辑。"""
         if not self.skip_stack:
             self.parts.append(data)
 

@@ -16,6 +16,7 @@ from sentence_extractor import _remove_ref_placeholders  # noqa: E402
 
 class ComponentPlaceholderTest(unittest.TestCase):
     def test_extracts_each_template_in_a_template_only_paragraph(self) -> None:
+        """验证：testextracts每个模板ina模板仅段落的预期行为。"""
         merge = "{{Merge to|China|date=July 2026}}"
         about = "{{About|the People's Republic of China|Taiwan}}"
         infobox = "{{Infobox country\n| native_name = Zhongguo\n\n| common_name = China\n}}"
@@ -37,6 +38,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertIn("The '''People's Republic of China''' is in East Asia.", text_process)
 
     def test_extracts_multiline_top_level_template_with_nested_templates(self) -> None:
+        """验证：testextractsmultilinetoplevel模板带有nested模板的预期行为。"""
         taxobox = (
             "{{automatic taxobox\n"
             "| name = Life\n"
@@ -60,6 +62,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertNotIn("Long fossil range", text_process)
 
     def test_extracts_only_outermost_paired_template_blocks(self) -> None:
+        """验证：testextracts仅outermostpaired模板blocks的预期行为。"""
         succession_block = (
             "{{S-start}}\n\n"
             "{{succession box|title=[[British Ambassador to France]]|years=1954-1960}}\n"
@@ -96,6 +99,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertIn("{{Unclosed start}}", text_process)
 
     def test_extracts_complete_templates_that_occupy_a_line(self) -> None:
+        """验证：testextractscomplete模板thatoccupyaline的预期行为。"""
         source = (
             "{{Merge to|China||discuss=Talk:China#Merging discussion (2026)|date=July 2026}}\n"
             "{{About|the People's Republic of China|the Republic of China}}\n"
@@ -135,6 +139,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertIn("independent_template-42-0003", text_process)
 
     def test_extracted_components_use_club_delimited_placeholders(self) -> None:
+        """验证：testextractedcomponentsuseclubdelimitedplaceholders的预期行为。"""
         cases = (
             ("{{Infobox person}}", "infobox"),
             ("{|\n| cell\n|}", "table"),
@@ -156,6 +161,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
                 self.assertNotIn("{{" + component_id + "}}", text_process)
 
     def test_sentence_processing_removes_club_delimited_ref_placeholders(self) -> None:
+        """验证：test句子processingremovesclubdelimitedrefplaceholders的预期行为。"""
         text = "Before ♣  ♣  ♣  ref-42-0001♣  ♣  ♣ after"
 
         self.assertEqual("Before  after", _remove_ref_placeholders(text))

@@ -15,6 +15,7 @@ from sentence_extractor import _process_wikilinks  # noqa: E402
 
 class SentenceWikilinkTest(unittest.TestCase):
     def test_component_template_fallback_link_uses_normal_wikilink_format(self) -> None:
+        """验证：test组件模板fallback链接usesnormalwikilinkformat的预期行为。"""
         text = "[[:Template:infobox-600-0001]]"
 
         self.assertEqual(
@@ -23,6 +24,7 @@ class SentenceWikilinkTest(unittest.TestCase):
         )
 
     def test_article_links_keep_their_sentence_representation(self) -> None:
+        """验证：testarticlelinkskeeptheir句子representation的预期行为。"""
         text = "[[:Taiwan]] [[Taiwan]] [[Communism|Communist]]"
 
         self.assertEqual(
