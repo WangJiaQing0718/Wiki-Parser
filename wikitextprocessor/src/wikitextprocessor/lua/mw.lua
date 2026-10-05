@@ -65,8 +65,8 @@ function mw_meta.__index(table, key)
 end
 
 function mw.addWarning(text)
-    if mw_python_add_warning then
-        mw_python_add_warning(text)
+    if not WTP_QUIET_OUTPUT then
+        print("mw.addWarning", text)
     end
 end
 

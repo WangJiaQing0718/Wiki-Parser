@@ -180,18 +180,15 @@ function Language:parseFormattedNumber(s)
 end
 
 function Language:convertPlural(n, ...)
-   -- Scribunto accepts either separate forms or one sequence table.  WTP's
-   -- content language is English, for which only the singular value 1 uses
-   -- the first form; every other value uses the second form.
-   local supplied = {...}
-   local forms = supplied
-   if #supplied == 1 and type(supplied[1]) == "table" then
-      forms = supplied[1]
+   local forms = {...}
+   if #forms == 1 and type(forms[1]) == "table" then
+      forms = forms[1]
    end
 
-   if forms[1] == nil then return "" end
-   if n == 1 then return forms[1] end
-   return forms[2] or forms[1]
+   -- English uses the singular form only for exactly 1; all other values
+   -- use the plural form. Scribunto accepts either a table or varargs.
+   local form_index = n == 1 and 1 or 2
+   return forms[form_index] or forms[#forms] or ""
 end
 
 function Language:plural(n, ...)
@@ -321,7 +318,9 @@ function mw_language.getContentLanguage()
 end
 
 function mw_language.getFallbacksFor(code)
-   print("mw.language.getFallbacksFor called")
+   if not WTP_QUIET_OUTPUT then
+      print("mw.language.getFallbacksFor called")
+   end
    return fallbacks[code] or {}
 end
 

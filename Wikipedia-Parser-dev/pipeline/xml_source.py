@@ -35,7 +35,8 @@ def build_latest_record(page: Any, latest_revision: Any) -> dict[str, Any]:
         "format": latest_revision.format,
         "text": latest_revision.text,
     }
-    record["content"] = record["text"]  # 解析路径（process_batch）读取 content
+    # 为解析路径提供别名，text 进入 latest表，content 供解析器使用。
+    record["content"] = record["text"]
     return record
 
 

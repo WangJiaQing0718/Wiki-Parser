@@ -34,7 +34,10 @@ Wikipedia 单遍 XML 转储解析流水线
 from __future__ import annotations
 
 import argparse
+import logging
+import os
 import sys
+from contextlib import redirect_stderr
 from pathlib import Path
 from typing import Callable
 
@@ -47,7 +50,7 @@ from pipeline_config import (  # noqa: E402
     output_table_names_for_dump,
     resolve_dump_file,
 )
-from run_logging import start_run_log  # noqa: E402
+from run_logging import configure_error_logging, start_run_log  # noqa: E402
 from wtp_database import ensure_wtp_database  # noqa: E402
 from xml_source import (  # noqa: E402
     SQLServerWriter,
@@ -173,6 +176,7 @@ def _run(
     args: argparse.Namespace,
     parser: argparse.ArgumentParser,
     failure_logger: Callable[[str], None] | None = None,
+    run_log_path: Path | None = None,
 ) -> None:
     import os
 
@@ -185,13 +189,12 @@ def _run(
     config = unified_config.sqlserver
     wtp_settings = unified_config.wtp
     configured_dump_file = unified_config.dump_file
-
     dump_file = resolve_dump_file(
         cli_dump_file=args.dump_file,
         configured_dump_file=configured_dump_file,
     )
 
-    # 参数边界验证：尽早给出错误
+    # 参数边界验证
     if not dump_file.exists():
         parser.error(f"转储文件不存在：{dump_file}")
     try:
@@ -199,6 +202,8 @@ def _run(
     except (OSError, ValueError, RuntimeError) as exc:
         parser.error(f"无法准备 WTP 数据库：{exc}")
     wtp_settings = {**wtp_settings, "db_path": str(wtp_db_path)}
+    if run_log_path is not None:
+        wtp_settings["log_path"] = str(run_log_path)
     if args.workers is not None and args.workers < 1:
         parser.error("--workers 必须 >= 1（留空则默认使用 CPU 核心数）。")
     if args.chunk_size < 1:
@@ -304,8 +309,10 @@ def _run(
         sentences_writer,
     )
 
-    # 5. 打开 XML 源，准备 checkpoint（断点续传）
+    # 打开 XML 源，准备 checkpoint（断点续传）
     checkpoint_store = None
+
+    # 初始化 XML 数据源
     source = XmlBatchSource(
         dump_file,
         args.chunk_size,
@@ -313,6 +320,8 @@ def _run(
         namespaces=namespaces,
     )
     source_name = str(dump_file)
+
+    # 如果启用了断点续传，加载 checkpoint 并跳过已处理的页面
     if args.resume:
         source_id = source_id_for_path(dump_file)
         checkpoint_store = SQLServerCheckpointStore(
@@ -340,7 +349,7 @@ def _run(
         engine.CheckpointCoordinator(checkpoint_store) if checkpoint_store else None
     )
     try:
-        # 6. 调用引擎核心 _run_core 进行多进程并行解析
+        # 调用 engine._run_core 进行多进程并行解析
         articles, parse_failed = engine._run_core(
             source,
             sink,
@@ -356,16 +365,16 @@ def _run(
             failure_logger=failure_logger,
         )
     finally:
-        # 8. finally 块确保 checkpoint 数据库连接关闭
+        # 确保 checkpoint 数据库连接关闭
         if checkpoint_store is not None:
             checkpoint_store.close()
 
-    # 7. 解析结束后，打印日志统计（处理了多少篇、失败多少篇、写入了多少行）
+    # 解析结束后，打印日志统计（处理了多少篇、失败多少篇、写入了多少行）
     raw_table = output_tables.raw
     counts = component_writer.written
     comp_summary = ", ".join(f"{t}={counts[t]}" for t in engine.COMPONENT_TYPES)
     print(
-        f"完成。articles={articles}, parse_failed={parse_failed}, workers={workers}, "
+        f"完成。articles={articles}, workers={workers}, "
         f"source={source_name}, raw_table={raw_table}, "
         f"processed_table={processed_table}"
     )
@@ -383,18 +392,34 @@ def _run(
             f"skipped_terminal={source.skipped}"
         )
     if parse_failed:
-        print(f"警告：{parse_failed} 篇文章解析失败（参见上方的 [parse-fail] 日志）。")
+        logging.warning("%s articles failed; see %s", parse_failed, run_log_path)
 
 
 def main() -> None:
     parser = build_parser()
     session = start_run_log(Path(__file__).resolve().parent / "logs")
+    configure_error_logging(session.path)
+    original_stderr_fd = os.dup(2)
     try:
         print(f"日志：{session.path}")
-        args = parser.parse_args()
-        _run(args, parser, session.write_parse_failure)
+        with redirect_stderr(session._log_file):
+            os.dup2(session._log_file.fileno(), 2)
+            try:
+                args = parser.parse_args()
+                _run(args, parser, session.write_parse_failure, session.path)
+            except SystemExit:
+                raise
+            except KeyboardInterrupt:
+                logging.warning("Interrupted by user")
+                raise SystemExit(130) from None
+            except BaseException:
+                logging.exception("Fatal parser failure")
+                raise SystemExit(1) from None
     finally:
+        logging.shutdown()
         session.close()
+        os.dup2(original_stderr_fd, 2)
+        os.close(original_stderr_fd)
 
 
 if __name__ == "__main__":

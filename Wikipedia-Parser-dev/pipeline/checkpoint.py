@@ -8,13 +8,12 @@ from typing import Any, Mapping
 
 import pymssql
 
-
 COMPLETED = "completed"
 COMPLETED_WITH_ERRORS = "completed_with_errors"
 
 
 def source_id_for_path(path: Path) -> str:
-    """为转储的这个精确路径/大小/mtime 版本返回一个稳定的 ID。"""
+    """为转储的 XML 文件生成唯一的 source_id"""
     stat = path.stat()
     identity = "\0".join(
         ("xml-logical-resume-v1", str(path.resolve()), str(stat.st_size), str(stat.st_mtime_ns))
@@ -22,6 +21,7 @@ def source_id_for_path(path: Path) -> str:
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
 
+# bundles：一批解析出来的文章记录列表。
 def terminal_records_for(
     source_id: str, bundles: list[dict[str, Any]]
 ) -> list[tuple[str, int, int, str]]:
@@ -92,7 +92,7 @@ class SQLServerCheckpointStore:
         self._conn.commit()
 
     def load_terminal_ids(self, *, retry_errors: bool) -> set[int]:
-        """执行加载终态ids的处理逻辑。"""
+        """查已完成的文章的 revision_id 集合。"""
         statuses = [COMPLETED]
         if not retry_errors:
             statuses.append(COMPLETED_WITH_ERRORS)
@@ -100,13 +100,13 @@ class SQLServerCheckpointStore:
         sql = (
             f"SELECT [revision_id] FROM {self._qualified} "
             f"WHERE [source_id] = %s AND [status] IN ({placeholders})"
-        )
+        ) 
         with self._conn.cursor() as cursor:
             cursor.execute(sql, [self.source_id, *statuses])
             return {int(row[0]) for row in cursor.fetchall()}
 
     def mark_terminal(self, bundles: list[dict[str, Any]]) -> None:
-        """执行mark终态的处理逻辑。"""
+        """把解析结果（完成与否）写入 checkpoint 表"""
         rows = terminal_records_for(self.source_id, bundles)
         if not rows:
             return

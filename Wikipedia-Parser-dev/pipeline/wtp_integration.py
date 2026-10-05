@@ -8,13 +8,18 @@ worker 拥有自己的 Wtp 实例。它打开选定的版本化 SQLite DB
 from __future__ import annotations
 
 import html
+import os
 import re
+import sys
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any, Mapping
 
 import mwparserfromhell
+from run_logging import configure_error_logging
 
 _WTP: Any | None = None
+_WORKER_STDERR: Any | None = None
 
 
 def load_wtp_settings(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -25,17 +30,25 @@ def load_wtp_settings(config: Mapping[str, Any]) -> dict[str, Any]:
         "expand_timeout": float(config.get("expand_timeout", 60.0)),
         # 这些默认值是为批次流水线刻意设置的。ProjectB
         # 仍保留其正常可写/在线模式用于独立使用。
-        "read_only": bool(config.get("read_only", True)),
-        "wikidata_offline": bool(config.get("wikidata_offline", True)),
+        # "read_only": bool(config.get("read_only", True)),
+        # "wikidata_offline": bool(config.get("wikidata_offline", True)),
     }
 
 
 def initialize_wtp_worker(settings: Mapping[str, Any] | None) -> None:
     """处理池初始化器：永远不要跨 worker 共享 Wtp/Lua 状态。"""
-    global _WTP
+    global _WTP, _WORKER_STDERR
     if settings is None:
         _WTP = None
         return
+    log_path = settings.get("log_path")
+    if log_path:
+        configure_error_logging(Path(str(log_path)))
+        _WORKER_STDERR = Path(str(log_path)).open(
+            "a", encoding="utf-8", buffering=1
+        )
+        sys.stderr = _WORKER_STDERR
+        os.dup2(_WORKER_STDERR.fileno(), 2)
     from wikitextprocessor import Wtp
 
     _WTP = Wtp(
@@ -44,8 +57,8 @@ def initialize_wtp_worker(settings: Mapping[str, Any] | None) -> None:
         project=settings["project"],
         quiet=True,
         quiet_output=True,
-        read_only=settings["read_only"],
-        wikidata_offline=settings["wikidata_offline"],
+        # read_only=settings["read_only"],
+        # wikidata_offline=settings["wikidata_offline"],
     )
 
 

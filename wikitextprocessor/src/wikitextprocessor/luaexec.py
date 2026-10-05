@@ -1,5 +1,6 @@
 # Helper functions for interfacing with the Lua sandbox for executing Lua
 # macros in Wikitext (Wiktionary, Wikipedia, etc.)
+#
 # Copyright (c) Tatu Ylonen.  See file LICENSE and https://ylonen.org
 
 import copy
@@ -53,40 +54,53 @@ LUA_DIR = files("wikitextprocessor") / "lua"
 
 def lua_loader(ctx: "Wtp", modname: str) -> Optional[str]:
     """This function is called from the Lua sandbox to load a Lua module.
-
-    Built-in WTP/Scribunto Lua libraries are checked first.  This is
-    important for reserved runtime modules such as ``mw``: a wiki page
-    named ``Module:mw`` must not shadow WTP's built-in ``mw.lua``.
-
-    If no built-in Lua library matches, fall back to a user-defined wiki
-    Module page.  Returns None when the module cannot be found.
-    """
-
+    This will load it from either the user-defined modules on special
+    pages or from a built-in module in the file system.  This returns None
+    if the module could not be loaded."""
     # print("LUA_LOADER IN PYTHON:", modname)
     assert isinstance(modname, str)
     modname = modname.strip()
-
-    # 1. Try WTP/Scribunto built-in Lua libraries first.
-    path = modname
-    path = re.sub(r"[\0-\037]", "", path)  # Remove control chars, e.g. \n
-    path = path.replace(":", "/")
-    path = path.replace(" ", "_")
-    path = re.sub(r"//+", "/", path)  # Replace multiple slashes by one
-    path = re.sub(r"\.\.+", ".", path)  # Replace .. and longer by .
-    path = re.sub(r"^//+", "", path)  # Remove initial slashes
-    path += ".lua"
-
+    # Resolve bundled runtime modules before wiki pages. Some dumps contain
+    # Module:Mw, which must not shadow WTP's own ``mw.lua`` implementation.
+    builtin_path = modname
+    builtin_path = re.sub(r"[\0-\037]", "", builtin_path)
+    builtin_path = builtin_path.replace(":", "/")
+    builtin_path = builtin_path.replace(" ", "_")
+    builtin_path = re.sub(r"//+", "/", builtin_path)
+    builtin_path = re.sub(r"\.\.+", ".", builtin_path)
+    builtin_path = re.sub(r"^//+", "", builtin_path)
+    builtin_path += ".lua"
     for prefix, exceptions in BUILTIN_LUA_SEARCH_PATHS:
         if modname in exceptions:
             continue
-
-        file_path = LUA_DIR / prefix / path
+        file_path = LUA_DIR / prefix / builtin_path
         if file_path.is_file():
             with file_path.open("r", encoding="utf-8") as f:
                 return f.read()
 
-    # 2. No built-in library matched: load a wiki Module page.
-    return ctx.get_page_body(modname, ctx.NAMESPACE_DATA["Module"]["id"])
+    data = ctx.get_page_body(modname, ctx.NAMESPACE_DATA["Module"]["id"])
+    if data is None:
+        # Try to load it from a file
+        path = modname
+        path = re.sub(r"[\0-\037]", "", path)  # Remove control chars, e.g. \n
+        path = path.replace(":", "/")
+        path = path.replace(" ", "_")
+        path = re.sub(r"//+", "/", path)  # Replace multiple slashes by one
+        path = re.sub(r"\.\.+", ".", path)  # Replace .. and longer by .
+        path = re.sub(r"^//+", "", path)  # Remove initial slashes
+        path += ".lua"
+
+        for prefix, exceptions in BUILTIN_LUA_SEARCH_PATHS:
+            if modname in exceptions:
+                continue
+
+            file_path = LUA_DIR / prefix / path
+            if file_path.is_file():
+                with file_path.open("r", encoding="utf-8") as f:
+                    data = f.read()
+                break
+
+    return data
 
 
 # the last pattern is for HTML named entity hex numbers
@@ -285,7 +299,6 @@ def call_set_functions(
                     mw_wikibase_getEntityIdForTitle, ctx
                 ),
                 "mw_current_title_python": partial(get_current_title, ctx),
-                "mw_python_add_warning": partial(mw_add_warning, ctx),
                 "current_frame_python": partial(
                     top_lua_stack, ctx.lua_frame_stack
                 ),
@@ -293,6 +306,7 @@ def call_set_functions(
                 "mw_language_format_date_python": partial(
                     mw_language_format_date_python, ctx
                 ),
+                "WTP_QUIET_OUTPUT": ctx.quiet_output,
                 "mw_wikibase_getEntity_py": partial(mw_wikibase_getEntity, ctx),
                 "mw_wikibase_getSitelink_py": partial(
                     mw_wikibase_getSitelink, ctx
@@ -806,19 +820,8 @@ def get_current_title(wtp: "Wtp") -> str:
     return wtp.title or "ERROR_TITLE"
 
 
-def mw_add_warning(wtp: "Wtp", text: str) -> None:
-    """Suppress high-volume Lua warnings for quiet batch contexts."""
-    if not wtp.quiet_output:
-        wtp.warning(str(text), sortid="luaexec/mw.addWarning")
-
-
 def add_empty_sandbox_lua_module(wtp: "Wtp") -> None:
     # prevent untrusted Lua code run sandbox
-    # A versioned pipeline DB is intentionally opened read-only.  The sandbox
-    # bootstrap lives in package data, so this defensive sentinel is not needed
-    # there and must not attempt an INSERT on the shared asset.
-    if wtp.read_only:
-        return
     ns = wtp.NAMESPACE_DATA["Module"]
     ns_name = ns["name"]
     ns_id = ns["id"]

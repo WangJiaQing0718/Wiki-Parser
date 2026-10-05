@@ -224,7 +224,7 @@ DB_CONFIG = {
     "port": 1433,
     "user": "sa",
     "password": "Wang342688",
-    "database": "Dev",
+    "database": "Dev1004",
     "schema": "dbo",
 }
 

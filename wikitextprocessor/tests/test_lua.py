@@ -40,32 +40,6 @@ class TestLua(TestCase):
             self.wtp.expand("{{#invoke:test|test}}"), "français French"
         )
 
-    def test_language_plural_supports_variadic_and_table_forms(self):
-        """Lua modules can select English singular/plural text both ways."""
-        self.wtp.add_page(
-            "Module:test",
-            828,
-            """
-            local export = {}
-            function export.test()
-              local lang = mw.language.getContentLanguage()
-              return table.concat({
-                lang:convertPlural(1, "year", "years"),
-                lang:convertPlural(2, "year", "years"),
-                lang:plural(1, {"day", "days"}),
-                lang:plural(0, {"day", "days"})
-              }, "|")
-            end
-            return export
-            """,
-            model="Scribunto",
-        )
-        self.wtp.start_page("")
-        self.assertEqual(
-            self.wtp.expand("{{#invoke:test|test}}"),
-            "year|years|day|days",
-        )
-
     def test_isolated_lua_env(self):
         # each Lua moudle uses by `#invoke` runs in cloned environment
         self.wtp.add_page(

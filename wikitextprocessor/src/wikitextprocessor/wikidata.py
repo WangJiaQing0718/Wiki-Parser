@@ -28,8 +28,6 @@ def init_wikidata_session(wtp: "Wtp"):
 
 
 def query_wikidata(wtp: "Wtp", query: str) -> dict[str, dict[str, str]]:
-    if wtp.wikidata_offline:
-        return {}
     if wtp.wikidata_session is None:
         init_wikidata_session(wtp)
     r = wtp.wikidata_session.get(  # type:ignore
@@ -259,11 +257,6 @@ def query_item(wtp: "Wtp", item_id: str, lang_code: str) -> WikiDataItem:
     result = get_item_cache(wtp, item_id)
     if result is not None:
         return result
-    if wtp.wikidata_offline:
-        # A versioned read-only DB must never turn a cache miss into an HTTP
-        # request or a cache write.  Lua receives an empty value as on an
-        # unavailable Wikibase item.
-        return WikiDataItem(item_id=item_id)
     query_result = query_wikidata(
         wtp,
         f"""
@@ -330,8 +323,6 @@ def query_entity_id_for_title(
     cache = get_entity_id_cache(wtp, title, site_id)
     if cache != "not found":
         return cache
-    if wtp.wikidata_offline:
-        return None
     lang_code = wtp.lang_code
     project = wtp.project
     if site_id == "":
@@ -388,6 +379,9 @@ def get_entity_data(
 ) -> Optional[dict[str, Any]]:
     # https://www.mediawiki.org/wiki/Wikibase/DataModel
     # https://doc.wikimedia.org/Wikibase/master/php/docs_topics_json.html
+    if wtp.wikidata_session is None:
+        init_wikidata_session(wtp)
+
     if item_id is None:
         item_id = query_entity_id_for_title(wtp, wtp.title or "", "")
     if item_id is None:
@@ -398,11 +392,6 @@ def get_entity_data(
     ):
         if entity_data_str is not None and len(entity_data_str) > 0:
             return json.loads(entity_data_str)
-
-    if wtp.wikidata_offline:
-        return None
-    if wtp.wikidata_session is None:
-        init_wikidata_session(wtp)
 
     r = wtp.wikidata_session.get(  # type:ignore
         f"https://www.wikidata.org/wiki/Special:EntityData/{item_id}.json"

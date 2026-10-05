@@ -12,6 +12,7 @@ lxml
 mediawiki_langcodes==0.2.25
 psutil
 requests
+streamlit
 
 # Install the bundled parser package itself.
 -e ./wikitextprocessor

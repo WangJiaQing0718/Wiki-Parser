@@ -97,12 +97,6 @@ Copy-Item .\config.example.json .\config.json
 python .\wikipedia_parser.py --config .\config.json
 ```
 
-也可用位置参数覆盖配置中的 dump，并先处理少量页面验证连接与表结构：
-
-```powershell
-python .\wikipedia_parser.py ..\WikiData\simplewiki-20260901-pages-articles.xml.bz2 --config .\config.json --max-pages 100
-```
-
 运行时会显示四个独立进度条：
 
 - `Read`：从 XML 读取的记录数。
@@ -165,3 +159,14 @@ docs/                      架构与开发指南
 ```
 
 `engine._run_core` 只依赖批源 iterable 和 writer 的 `add_rows` / `close` 协议，因此 XML 来源和输出端可以分别替换。`FanoutWriter` 把同一批解析 bundle 分发到 processed、组件和层次 writer。
+
+## WTP Playground
+
+安装项目依赖后，在仓库根目录启动本地 Wikitext 页面：
+
+```powershell
+python -m pip install --no-build-isolation -r requirements.txt
+streamlit run Wikipedia-Parser-dev/wtp.py
+```
+
+页面需要一个已经生成的 `*-wtp-full.db`。默认会选择 `WikiData/` 中找到的数据库，也可以在侧边栏指定其他数据库路径；此页面不会自动构建数据库。

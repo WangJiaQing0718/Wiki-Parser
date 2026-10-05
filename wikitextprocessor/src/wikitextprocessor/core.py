@@ -294,8 +294,6 @@ class Wtp:
         "notes",  # NOTE error messages
         "wiki_notices",  # WIKI error messages
         "wikidata_session",
-        "wikidata_offline",  # Never use Wikidata HTTP fallback
-        "read_only",  # Open an existing WTP database without mutating it
         "linktrailing_re",
         "quiet_output",  # Prevent errors printed to stdout
     )
@@ -310,17 +308,11 @@ class Wtp:
         parser_function_aliases: dict[str, str] = {},
         quiet: bool = False,
         quiet_output: bool = False,
-        read_only: bool = False,
-        wikidata_offline: bool = False,
     ):
         if isinstance(db_path, str):
             self.db_path: Optional[Path] = Path(db_path)
         else:
             self.db_path = db_path
-        if read_only and self.db_path is None:
-            raise ValueError("read_only=True requires an existing db_path")
-        self.read_only = read_only
-        self.wikidata_offline = wikidata_offline
         self.cookies: list[CookieData] = []
         self.errors: list[ErrorMessageData] = []
         self.warnings: list[ErrorMessageData] = []
@@ -402,16 +394,6 @@ class Wtp:
         if self.backup_db_path.exists():
             self.db_path.unlink(True)
             self.backup_db_path.rename(self.db_path)
-
-        if self.read_only:
-            assert self.db_path is not None
-            # The pipeline may run several processes against one versioned DB.
-            # `mode=ro` prevents WAL/cache writes and makes that safe.
-            db_uri = self.db_path.resolve().as_uri() + "?mode=ro"
-            self.db_conn = sqlite3.connect(
-                db_uri, uri=True, check_same_thread=False
-            )
-            return
 
         self.db_conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.db_conn.executescript(

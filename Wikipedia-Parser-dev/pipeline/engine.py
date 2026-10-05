@@ -27,8 +27,10 @@ change what gets written.
 
 from __future__ import annotations
 
+import logging
 import queue
 import re
+import sys
 import threading
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -1314,10 +1316,20 @@ def _run_core(
     if checkpoint is not None and raw_writer is None:
         raise ValueError("A checkpoint requires a raw writer acknowledgement.")
     # Independent speed bars: Read / Parse / Write (+ Raw when raw writing is enabled).
-    bar_read = tqdm(total=total, desc="Read ", unit="row", position=0)
-    bar_parse = tqdm(total=total, desc="Parse", unit="row", position=1)
-    bar_write = tqdm(total=total, desc="Write", unit="row", position=2)
-    bar_raw = tqdm(total=total, desc="Raw  ", unit="row", position=3) if raw_writer else None
+    bar_read = tqdm(
+        total=total, desc="Read ", unit="row", position=0, file=sys.stdout
+    )
+    bar_parse = tqdm(
+        total=total, desc="Parse", unit="row", position=1, file=sys.stdout
+    )
+    bar_write = tqdm(
+        total=total, desc="Write", unit="row", position=2, file=sys.stdout
+    )
+    bar_raw = (
+        tqdm(total=total, desc="Raw  ", unit="row", position=3, file=sys.stdout)
+        if raw_writer
+        else None
+    )
 
     futures_q: "queue.Queue[Any]" = queue.Queue(maxsize=workers * 2)
     write_q: "queue.Queue[Any]" = queue.Queue(maxsize=workers * 2)
@@ -1459,7 +1471,6 @@ def _run_core(
                 wtp_error_total += result.wtp_errors
                 if result.failures:
                     failed_total += len(result.failures)
-                    bar_parse.set_postfix(failed=failed_total, refresh=False)
                     for key, err in result.failures:
                         line = f"[parse-fail] {key_column}={key}: {err}"
                         if failure_logger is not None:
@@ -1552,12 +1563,18 @@ def _run_core(
     primary = first_error[0] if first_error else (cleanup_errors[0] if cleanup_errors else None)
     for exc in cleanup_errors:
         if exc is not primary:
-            print(f"WARNING: cleanup-stage exception (does not mask the primary cause): {type(exc).__name__}: {exc}")
+            logging.warning(
+                "Cleanup-stage exception (does not mask the primary cause): %s: %s",
+                type(exc).__name__, exc,
+            )
     if primary is not None:
         raise primary
-    print(
-        "Paragraph stats: "
-        f"total={paragraph_total}, succeeded={paragraph_succeeded}, "
-        f"failed={paragraph_failed}, wtp_lua_errors={wtp_error_total}"
-    )
+    if paragraph_failed or wtp_error_total:
+        logging.warning(
+            "Paragraph stats: total=%s, succeeded=%s, failed=%s, wtp_lua_errors=%s",
+            paragraph_total,
+            paragraph_succeeded,
+            paragraph_failed,
+            wtp_error_total,
+        )
     return int(bar_write.n), failed_total

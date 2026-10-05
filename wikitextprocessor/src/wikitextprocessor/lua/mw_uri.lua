@@ -285,6 +285,7 @@ function mw_uri.new(s)
       url.query = mw.clone(s.query)
       url.fragment = s.fragment
    end
+   return url
 end
 
 function mw_uri.buildQueryString(args)

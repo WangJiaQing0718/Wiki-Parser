@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from dataclasses import dataclass
@@ -50,3 +51,22 @@ def start_run_log(
         except FileExistsError:
             suffix += 1
     return RunLogSession(path=path, _log_file=log_file, _lock=threading.Lock())
+
+
+def configure_error_logging(log_path: Path) -> None:
+    """Route Python warnings and WARNING+ logging records to this run's log."""
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        root.removeHandler(handler)
+        handler.close()
+
+    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+    handler.setLevel(logging.WARNING)
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(levelname)s [%(processName)s] %(name)s: %(message)s"
+        )
+    )
+    root.addHandler(handler)
+    root.setLevel(logging.WARNING)
+    logging.captureWarnings(True)
