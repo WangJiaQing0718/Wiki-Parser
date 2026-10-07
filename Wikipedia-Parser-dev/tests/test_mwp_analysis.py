@@ -15,7 +15,7 @@ import wtp_integration  # noqa: E402
 
 class MwpAnalysisTest(unittest.TestCase):
     def test_validation_does_not_walk_templates(self) -> None:
-        """验证：testvalidationdoes不walk模板的预期行为。"""
+        """验证 MWP 校验过程不会遍历模板。"""
         class Parsed:
             def filter_templates(self, recursive: bool = True) -> list[object]:
                 """执行filter模板的处理逻辑。"""

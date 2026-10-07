@@ -281,7 +281,7 @@ raw writer thread 同理写入原始记录。
 
 没有标题的开头正文也会成为一个 section。
 
-### 8.2 `engine.extract_and_templatize()`
+### 8.2 `component_extractor.extract_and_templatize()`
 
 这个函数使用 `mwparserfromhell` 识别组件。
 

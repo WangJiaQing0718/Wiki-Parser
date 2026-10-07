@@ -10,14 +10,14 @@ from pathlib import Path
 PIPELINE_DIR = Path(__file__).resolve().parents[1] / "pipeline"
 sys.path.insert(0, str(PIPELINE_DIR))
 
-from engine import COMPONENT_TYPES, extract_and_templatize  # noqa: E402
+from component_extractor import COMPONENT_TYPES, extract_and_templatize  # noqa: E402
 from paragraph_extractor import Paragraph  # noqa: E402
 from sentence_extractor import extract_sentences  # noqa: E402
 
 
 class ListPipelineTest(unittest.TestCase):
     def test_lists_are_not_components_and_reach_sentence_processing(self) -> None:
-        """验证：testlistsare不components与reach句子processing的预期行为。"""
+        """验证列表不会被提取为组件，并会保留到句子处理阶段。"""
         source = "Intro:\n* First item.\n** Child item.\n* Second [[Target]].\n"
 
         wtp_input, components = extract_and_templatize(source, page_id=99)

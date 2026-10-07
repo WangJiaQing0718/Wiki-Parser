@@ -32,7 +32,7 @@ class SleepWriter:
 
     def add_rows(self, rows) -> None:
         """接收一批数据并追加到内部缓冲区。"""
-        time.sleep(self.sec)  # simulate one batch upsert's DB round trip
+        time.sleep(self.sec)  # 模拟一个批次 upsert 的数据库往返延迟
         self.n += len(rows)
 
     def close(self) -> None:

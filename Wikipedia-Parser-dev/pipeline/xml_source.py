@@ -58,8 +58,7 @@ class XmlBatchSource:
         self.dump_path = dump_path
         self.chunk_size = chunk_size
         self.max_pages = max_pages
-        # None = 所有命名空间；否则只保留命名空间在集合中的页面
-        # （例如 {0} 只保留文章）。
+        # namespaces = None 为保留所有命名空间
         self.namespaces = namespaces
         self._stream: Any = None
 
@@ -108,7 +107,8 @@ class SkippingBatchSource:
         """执行iter的处理逻辑。"""
         for batch in self.source:
             remaining = [
-                row for row in batch
+                row
+                for row in batch
                 if int(row["revision_id"]) not in self.terminal_revision_ids
             ]
             self.skipped += len(batch) - len(remaining)
@@ -125,9 +125,18 @@ class SQLServerWriter:
 
     # 原始表列顺序；write_record 必须按此顺序构建行。
     _COLUMNS = (
-        "revision_id", "page_id", "page_title", "namespace", "is_redirect",
-        "comment", "user_text", "user_id", "minor",
-        "content_model", "content_format", "content",
+        "revision_id",
+        "page_id",
+        "page_title",
+        "namespace",
+        "is_redirect",
+        "comment",
+        "user_text",
+        "user_id",
+        "minor",
+        "content_model",
+        "content_format",
+        "content",
     )
 
     def __init__(
@@ -248,7 +257,9 @@ class SQLServerWriter:
     def _build_merge_sql(self) -> str:
         """执行构建mergesql的处理逻辑。"""
         cols = ", ".join(self._COLUMNS)
-        set_clause = ",\n                ".join(f"{c} = source.{c}" for c in self._COLUMNS)
+        set_clause = ",\n                ".join(
+            f"{c} = source.{c}" for c in self._COLUMNS
+        )
         source_cols = ", ".join(f"source.{c}" for c in self._COLUMNS)
         return f"""
         MERGE {self._qualified_table} AS target
@@ -274,9 +285,11 @@ class SQLServerWriter:
         try:
             with self._conn.cursor() as cursor:
                 for i in range(0, len(self._buffer), rows_per_stmt):
-                    chunk = self._buffer[i:i + rows_per_stmt]
+                    chunk = self._buffer[i : i + rows_per_stmt]
                     cursor.execute(
-                        self._merge_sql.format(values=",\n            ".join([row] * len(chunk))),
+                        self._merge_sql.format(
+                            values=",\n            ".join([row] * len(chunk))
+                        ),
                         [v for r in chunk for v in r],
                     )
             self._conn.commit()

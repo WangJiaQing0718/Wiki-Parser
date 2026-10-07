@@ -54,7 +54,7 @@ def start_run_log(
 
 
 def configure_error_logging(log_path: Path) -> None:
-    """Route Python warnings and WARNING+ logging records to this run's log."""
+    """将 Python 警告和 WARNING 及以上级别的日志记录写入本次运行的日志文件。"""
     root = logging.getLogger()
     for handler in root.handlers[:]:
         root.removeHandler(handler)

@@ -28,15 +28,35 @@ Wikipedia-Parser-dev/
 
 将 Wikipedia XML dump 单遍读取、解压和解析，并把原始版本记录与结构化解析结果并行写入 SQL Server。输入文件名中的八位日期会成为输出表名后缀，例如 `simplewiki-20260901-pages-articles.xml.bz2` 默认写入 `wiki_latest_20260901`、`wiki_processed_20260901` 和 `wiki_component_*_20260901`。
 
-```mermaid
-flowchart LR
-    XML[XML .bz2 dump] --> Read[XmlBatchSource]
-    Read --> Raw[Raw writer\nwiki_latest_YYYYMMDD]
-    Read --> Pool[Process pool\nMWP + WTP]
-    Pool --> Processed[Processed writer\nwiki_processed_YYYYMMDD]
-    Pool --> Components[Component writer\nwiki_component_*_YYYYMMDD]
-    Pool --> Hierarchy[Sections / paragraphs /\nWTP intermediate / sentences]
+```text
+simplewiki-*.xml.bz2 ──single pass──▶ ② XML 文件读取 ──▶ ③ 进程池
+                                                              ├──▶ simplewiki_latest（raw copy，固定 schema）
+                                                              └──▶ 逐页解析
+                                                                     │
+                                                                     └──▶ ④ 分节 ──▶ ⑤ 分段 ──▶ ⑥ 组件提取
+                                                                                                   │
+                                                                     ┌─────────────────────────────┘
+                                                                     ▼
+                                                               ⑦ 模板展开 ──▶ ⑧ 分句
+
+① db 文件检测（建库阶段，先于流水线）
+   ├── 同名 *-wtp-full.db 命中 ──▶ 直接复用（不重建、不覆盖）
+   └── 同名 *-wtp-full.db 未命中 ──▶ 从该 XML 建库后复用
+
+④ 分节     = 按 == 标题切分；⑤ 分段 = 原文快照 → 组件提取后再分段一次
+⑥ 组件提取 = infobox / table / independent_template / wikilinks / external_links / file / image / ref
+             → 改写为占位符 id；列表保护使其不被抽成组件
+⑦ 模板展开 = begin_page ─▶ analyze_wikitext ─▶ expand_to_text ─▶ 可见文本（去注释 / ref / 文件链接 / 分类）
+⑧ 分句     = 移除 ref 占位符 ─▶ 合并冒号引导语 ─▶ 列表保护 ─▶ sentencex ─▶ 还原列表 ─▶ wikilink 格式化
+
+图例：──▶ 数据流，──single pass── 单遍读取，──parse── 该段在 worker 进程池内完成，①–⑧ 为执行顺序。
+      ① 在建库阶段先于流水线发生；⑦⑧ 按段落逐个执行，每个 worker 各持一份 WTP 实例。
 ```
+
+其中两处"跳过"互不相同，注意区分：
+
+- `should_skip_wtp_for_toc`：**分节/分段级**，命中 `References`、`External links` 等目录根后，该段及全文后续段落都不再做 WTP 展开（`engine.build_bundle`）。
+- `extract_sentences(skip_tocs=...)`：**分句级**，命中后整段作为一句、且不做 wikilink 转换。该参数目前由 `sentence_extractor` 预留，生产调用未传入，因此该分支在默认运行中不会触发。
 
 详见 [架构与容错](docs/architecture.md)、[函数级、句级开发指南](docs/development-guide.md) 和[按命令流学习项目](docs/command-flow-learning-guide.md)。
 

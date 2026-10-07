@@ -18,8 +18,8 @@
 
 | 位置 | 核心函数/类 | 职责与修改注意事项 |
 | --- | --- | --- |
-| `pipeline/engine.py` | `extract_and_templatize` | 用 `mwparserfromhell` 提取组件，普通 wikilink 保持在 `text_process`，其余组件替换为内部占位符。新增组件类型时更新 `COMPONENT_TYPES`、提取分支、对应测试和预期表。 |
-| `pipeline/engine.py` | `_component_id` | 生成 `<type>-<page_id>-<seq>`。同一页面同类型序号必须稳定且不可重复。 |
+| `pipeline/component_extractor.py` | `extract_and_templatize` | 用 `mwparserfromhell` 提取组件，普通 wikilink 保持在 `text_process`，其余组件替换为内部占位符。新增组件类型时更新 `COMPONENT_TYPES`、提取分支、对应测试和预期表。 |
+| `pipeline/component_extractor.py` | `_component_id` | 生成 `<type>-<page_id>-<seq>`。同一页面同类型序号必须稳定且不可重复。 |
 | `pipeline/engine.py` | `remove_format_blocks` | 移除特定格式块，避免已提取的占位符残留在最终文本中。 |
 | `pipeline/engine.py` | `should_skip_wtp_for_toc` | 判断参考文献等节是否跳过 WTP/句级展开。标题比较为大小写无关，并接受 `Title:Child`。 |
 | `pipeline/engine.py` | `build_bundle`、`process_batch` | worker 的主要边界：输入原始行，输出可 pickle 的 bundle 和错误统计。异常应转换为 `parse_error`，不要让单篇文章杀死整个 batch。 |
@@ -31,7 +31,7 @@
 | `pipeline/wtp_integration.py` | `initialize_wtp_worker` | 每个 worker 初始化独立 WTP 实例；不要在父进程创建后传入子进程。 |
 | `pipeline/wtp_integration.py` | `analyze_wikitext`、`expand_to_text` | 执行 WTP 分析、展开和可见文本转换；错误作为返回值而非终止管线。 |
 | `pipeline/engine.py` | `ProcessedTextWriter` | `revision_id` MERGE upsert。增加 processed 字段时更新 `_COLS`、建表 SQL、MERGE SQL 与输入 bundle。 |
-| `pipeline/engine.py` | `ComponentWriter` | 统一维护全部组件表，按页面 delete-then-insert；新增类型无需新 writer，但需确保 `COMPONENT_TYPES` 完整。 |
+| `pipeline/engine.py` | `ComponentWriter` | 统一维护全部组件表，按页面 delete-then-insert；新增类型无需新 writer，但需确保 `component_extractor.COMPONENT_TYPES` 完整。 |
 | `pipeline/engine.py` | `SectionsWriter`、`ParagraphsWriter`、`WtpIntermediateWriter`、`SentencesWriter` | 维护层次表，按 revision delete-then-insert。新唯一约束名必须基于实际表名，防止版本表冲突。 |
 | `pipeline/engine.py` | `FanoutWriter`、`_run_core` | writer 协议和并发核心。新 sink 应实现 `add_rows`、`flush`、`close` 后传给 `FanoutWriter`。 |
 | `pipeline/checkpoint.py` | `SQLServerCheckpointStore`、`CheckpointCoordinator` | 只有 raw 与 processed 都提交后才记录终态；修改提交顺序时不得破坏这个屏障。 |

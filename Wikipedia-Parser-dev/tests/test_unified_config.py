@@ -19,7 +19,7 @@ from wikipedia_parser import build_parser  # noqa: E402
 
 class UnifiedConfigTest(unittest.TestCase):
     def test_config_option_is_required(self) -> None:
-        """验证：test配置选项为required的预期行为。"""
+        """验证配置选项为必填项。"""
         args = build_parser().parse_args(["--config", "config.json"])
 
         self.assertEqual(Path("config.json"), args.config)
@@ -36,7 +36,7 @@ class UnifiedConfigTest(unittest.TestCase):
             build_parser().parse_args(["--db-config", "db.json"])
 
     def test_config_supplies_sqlserver_wtp_and_default_dump_without_db_path(self) -> None:
-        """验证：test配置suppliessqlserverwtp与默认转储不含db路径的预期行为。"""
+        """验证配置会提供 SQL Server、WTP 和默认转储文件，且无需数据库路径。"""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             db_dir = root / "data"
@@ -68,7 +68,7 @@ class UnifiedConfigTest(unittest.TestCase):
             self.assertEqual(dump.resolve(), config.dump_file)
 
     def test_config_does_not_require_wtp_database_path(self) -> None:
-        """验证：test配置does不requirewtp数据库路径的预期行为。"""
+        """验证配置不要求提供 WTP 数据库路径。"""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_file = root / "config.json"
@@ -93,7 +93,7 @@ class UnifiedConfigTest(unittest.TestCase):
             self.assertEqual("en", config.wtp["lang_code"])
 
     def test_cli_dump_overrides_configured_dump(self) -> None:
-        """验证：testcli转储overridesconfigured转储的预期行为。"""
+        """验证命令行指定的转储文件会覆盖配置中的文件。"""
         configured = Path("configured.xml.bz2")
         override = Path("override.xml.bz2")
 
@@ -113,13 +113,13 @@ class UnifiedConfigTest(unittest.TestCase):
         )
 
     def test_source_table_option_is_not_accepted(self) -> None:
-        """验证：test数据源数据表选项为不accepted的预期行为。"""
+        """验证数据源表选项不会被接受。"""
         parser = build_parser()
         with self.assertRaises(SystemExit):
             parser.parse_args(["--config", "config.json", "--source-table", "simplewiki_latest"])
 
     def test_xml_dump_suffixes_every_output_table_with_the_dump_date(self) -> None:
-        """验证：testxml转储suffixesevery输出数据表带有the转储date的预期行为。"""
+        """验证 XML 转储日期会作为后缀添加到每张输出表名。"""
         table_names_for_dump = getattr(
             pipeline_config, "output_table_names_for_dump", None
         )
@@ -154,7 +154,7 @@ class UnifiedConfigTest(unittest.TestCase):
         self.assertEqual("wiki_parse_checkpoint" + suffix, table_names.checkpoint)
 
     def test_xml_dump_without_an_eight_digit_date_is_rejected(self) -> None:
-        """验证：testxml转储不含aneightdigitdate为rejected的预期行为。"""
+        """验证日期不是八位数字的 XML 转储文件会被拒绝。"""
         table_names_for_dump = getattr(
             pipeline_config, "output_table_names_for_dump", None
         )

@@ -23,7 +23,7 @@ from paragraph_extractor import Paragraph  # noqa: E402
 
 class SkipWtpSectionsTest(unittest.TestCase):
     def test_target_toc_roots_are_case_insensitive_and_include_subsections(self) -> None:
-        """验证：test目标目录rootsarecaseinsensitive与includesubsections的预期行为。"""
+        """验证目标目录根节点匹配时不区分大小写，并包含其子章节。"""
         for toc in (
             "REFERENCES:Books",
             "Other Websites",
@@ -38,7 +38,7 @@ class SkipWtpSectionsTest(unittest.TestCase):
         self.assertFalse(should_skip_wtp_for_toc("History:Background"))
 
     def test_trigger_toc_skips_itself_and_all_later_sections(self) -> None:
-        """验证：testtrigger目录skipsitself与全部latersections的预期行为。"""
+        """验证触发跳过的目录及其后的所有章节都会被跳过。"""
         row = {
             "revision_id": 1,
             "page_id": 2,
@@ -96,7 +96,7 @@ History paragraph.
         self.assertEqual("Lead", writer._buffer[0][5])
 
     def test_empty_skip_only_output_deletes_stale_wtp_and_sentence_rows(self) -> None:
-        """验证：test空跳过仅输出deletesstalewtp与句子rows的预期行为。"""
+        """验证跳过所有内容时会删除陈旧的 WTP 和句子记录。"""
         bundle = {
             "revision_id": 41,
             "page_id": 4,

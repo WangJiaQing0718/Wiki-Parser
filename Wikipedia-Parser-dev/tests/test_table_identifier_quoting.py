@@ -22,7 +22,7 @@ from checkpoint import SQLServerCheckpointStore  # noqa: E402
 
 class VersionedTableMetadataTest(unittest.TestCase):
     def test_hierarchical_unique_constraints_include_the_target_table_name(self) -> None:
-        """验证：testhierarchicaluniqueconstraintsincludethe目标数据表name的预期行为。"""
+        """验证层级表的唯一约束名称包含目标表名。"""
         writers = (
             (SectionsWriter, "wiki_sections_20260801", "rev_secno"),
             (ParagraphsWriter, "wiki_paragraph_20260801", "rev_secno_pno"),
@@ -42,7 +42,7 @@ class VersionedTableMetadataTest(unittest.TestCase):
                 )
 
     def test_hierarchical_writers_quote_versioned_names_in_metadata_lookups(self) -> None:
-        """验证：testhierarchicalwriters转义带版本namesinmetadatalookups的预期行为。"""
+        """验证层级写入器在元数据查询中会正确引用带版本后缀的名称。"""
         writers = (
             (SectionsWriter, "wiki_sections_[20260801]"),
             (WtpIntermediateWriter, "wiki_wtp_intermediate_[20260801]"),
@@ -62,7 +62,7 @@ class VersionedTableMetadataTest(unittest.TestCase):
                 )
 
     def test_checkpoint_uses_a_quoted_versioned_name_for_existence_checks(self) -> None:
-        """验证：test检查点usesaquoted带版本nameforexistencechecks的预期行为。"""
+        """验证检查点在检查表是否存在时会正确引用带版本后缀的表名。"""
         connection = _RecordingConnection()
         table = "wiki_parse_checkpoint_[20260801]"
 

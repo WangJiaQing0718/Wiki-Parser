@@ -1,27 +1,25 @@
 #!/usr/bin/env python3
 """
-Processing engine: batches -> multiprocess parse -> write processed table
-(optionally fan out to the raw table at the same time).
+处理引擎：批量读取 -> 多进程解析 -> 写入处理结果表
+（也可以同时将数据分流写入原始数据表）。
 
-Called by wikipedia_parser.py. The core is `_run_core(batches, processed_writer,
-raw_writer=...)`: decoupled from the batch source -- batches come from the XML
-stream, get parsed in a process pool with mwparserfromhell (CPU-bound, bypassing
-the GIL); read / parse / write (+ raw write) are each driven by one thread, each
-with its own tqdm speed bar. Includes backpressure, worker-timeout fallback,
-first-error semantics, cleanup that never masks the root cause, and observable
-parse failures.
+由 wikipedia_parser.py 调用。核心函数 `_run_core(batches, processed_writer,
+raw_writer=...)` 与批次来源解耦：批次来自 XML 数据流，由进程池使用
+mwparserfromhell 解析（这是 CPU 密集型工作，可绕过 GIL）；读取、解析、写入
+（以及原始数据写入）分别由独立线程驱动，并各自显示 tqdm 速度条。引擎还包含
+背压控制、工作进程超时处理、首个错误优先机制，以及不会掩盖根因的清理流程，
+并会记录解析失败。
 
-Reference implementation: for each ns=0 article run the chain
-  1. extract_sections      (section_extractor: split by == Title ==)
-  2. extract_and_templatize per section
-     (7 component types: infobox / table / wikilinks / external_links /
-      file / image / ref; skip-toc sections kept verbatim)
-  3. extract_paragraphs    (paragraph_extractor: blank-line split + subsection toc)
-  4. extract_sentences     (sentence_extractor: sentencex + wikilink/list handling)
-and write each type to its own table via ComponentWriter plus one row per
-section / paragraph / sentence via SectionsWriter / ParagraphsWriter /
-SentencesWriter. `_run_core` stays generic -- swap the extractor + sink to
-change what gets written.
+参考实现：对每篇 namespace 为 0 的文章依次执行：
+  1. extract_sections（section_extractor：按 == 标题 == 切分）
+  2. 对每个章节调用 extract_and_templatize
+     （8 种组件：infobox / table / independent_template / wikilinks /
+      external_links / file / image / ref；跳过目录匹配章节并保留原文）
+  3. extract_paragraphs（paragraph_extractor：按空行切分并生成子章节目录）
+  4. extract_sentences（sentence_extractor：使用 sentencex 并处理 wikilink/列表）
+每种组件通过 ComponentWriter 写入独立数据表；章节、段落和句子则分别通过
+SectionsWriter、ParagraphsWriter 和 SentencesWriter 写入，每条记录各占一行。
+`_run_core` 保持通用；替换提取器和写入端即可改变输出内容。
 
 """
 
@@ -29,25 +27,23 @@ from __future__ import annotations
 
 import logging
 import queue
-import re
 import sys
 import threading
 import time
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping
 
-import mwparserfromhell
 import pymssql
-from mwparserfromhell.nodes import ExternalLink, Tag, Template, Text, Wikilink
 from tqdm import tqdm
 
-# Hierarchical extraction (independent copies of API-Parser's lib/ modules,
-# kept functionally aligned): sections -> paragraphs -> sentences.
+# 层级提取功能（独立复制自 API-Parser 的 lib 模块，并保持功能一致）：
+# 章节 -> 段落 -> 句子。
 from section_extractor import extract_sections  # noqa: E402
 from paragraph_extractor import extract_paragraphs  # noqa: E402
 from sentence_extractor import extract_sentences  # noqa: E402
+from component_extractor import COMPONENT_TYPES, extract_and_templatize  # noqa: E402
 from wtp_integration import (  # noqa: E402
     analyze_wikitext,
     begin_page,
@@ -55,17 +51,16 @@ from wtp_integration import (  # noqa: E402
     initialize_wtp_worker,
 )
 
-# Primary key (both raw and processed records use revision_id; timeout locating
-# and logging rely on it).
+# 主键：原始数据和处理结果都使用 revision_id；超时定位和日志记录也依赖它。
 KEY_COLUMN = "revision_id"
 
 
 @dataclass
 class BatchResult:
-    """Return value of process_batch: records to write + parse-failure details (for data-quality observability)."""
+    """process_batch 的返回值：待写入记录和解析失败详情，用于观察数据质量。"""
 
-    records: list[dict[str, Any]]        # records to write (includes failed rows; failed rows have a non-null parse_error)
-    failures: list[tuple[Any, str]]      # (source key value, error message), for counting and logging
+    records: list[dict[str, Any]]        # 待写入的记录；包含失败行，失败行的 parse_error 非空
+    failures: list[tuple[Any, str]]      # (源记录主键值, 错误信息)，用于统计和记录日志
     paragraphs_total: int = 0
     paragraphs_succeeded: int = 0
     paragraphs_failed: int = 0
@@ -81,32 +76,17 @@ class ParagraphRunStats:
 
 
 # =========================================================================== #
-# Parse-implementer definitions (below is a reference impl, replaceable wholesale).
+# 解析实现相关定义（以下为可整体替换的参考实现）。
 #
-# Each ns=0 article yields:
-#   * text_process -- the wikitext with each component replaced in place by its id
-#   * components    -- {type: [(component_id, component_text), ...]} in doc order
-#   * sections / paragraphs / sentences -- the three hierarchical row lists
-# Written by ProcessedTextWriter (text_process) + ComponentWriter (components)
-# + SectionsWriter / ParagraphsWriter / SentencesWriter (hierarchical rows).
+# 每篇 namespace 为 0 的文章会生成：
+#   * text_process -- 将维基文本中的每个组件替换为对应 ID 后得到的文本
+#   * components    -- {type: [(component_id, component_text), ...]}，按文档顺序排列
+#   * sections / paragraphs / sentences -- 三种层级记录列表
+# text_process 由 ProcessedTextWriter 写入，组件由 ComponentWriter 写入，
+# 层级记录由 SectionsWriter / ParagraphsWriter / SentencesWriter 写入。
 # =========================================================================== #
-# Component types; each gets its own table component_<type>.
-# file/image are split: [[File:...]] -> file table, [[Image:...]] -> image table.
-COMPONENT_TYPES = (
-    "infobox", "table", "independent_template", "wikilinks", "external_links",
-    "file", "image", "ref",
-)
-
-# List blocks are deliberately protected from component extraction.  They stay
-# untouched through WTP and are handled only by sentence_extractor.
-_LIST_MARKER_RE = re.compile(r"^[ \t]*[*#;:]")
-
-_TEMPLATE_BLOCK_OPENERS = ("start", "top", "begin")
-_TEMPLATE_BLOCK_CLOSERS = ("end", "bottom")
-
-# Sections whose toc (lower-cased) is in this set are kept verbatim: no
-# component extraction, no format-block removal, no sentence segmentation.
-# (Independent copy of API-Parser's _SKIP_COMPONENT_TOCS.)
+# toc（转为小写后）属于此集合的章节会原样保留：不提取组件、不移除格式块，
+# 也不进行句子切分。（独立复制自 API-Parser 的 _SKIP_COMPONENT_TOCS。）
 _SKIP_COMPONENT_TOCS = frozenset({
     "references",
     "other websites",
@@ -118,9 +98,8 @@ _SKIP_COMPONENT_TOCS = frozenset({
     "notes"
 })
 
-# The current WTP pipeline still extracts components from these sections, but
-# their paragraphs are stored as-is after that extraction and never expanded
-# or split into sentences.
+# 当前 WTP 流水线仍会从这些章节提取组件，但提取后会原样保存段落，
+# 不再展开段落，也不再将其切分为句子。
 _SKIP_WTP_TOC_ROOTS = _SKIP_COMPONENT_TOCS
 
 
@@ -130,221 +109,6 @@ def should_skip_wtp_for_toc(toc: str | None) -> bool:
         return False
     root = toc.split(":", 1)[0].strip().casefold()
     return root in _SKIP_WTP_TOC_ROOTS
-
-def _component_id(ctype: str, page_id: Any, seq: int) -> str:
-    """执行组件id的处理逻辑。"""
-    return f"{ctype}-{page_id}-{seq:04d}"
-
-
-def _protect_list_blocks(wikitext: str) -> tuple[str, dict[str, str]]:
-    """执行protect列表blocks的处理逻辑。"""
-    lines = wikitext.splitlines(keepends=True)
-    output: list[str] = []
-    blocks: dict[str, str] = {}
-    index = 0
-    position = 0
-    while position < len(lines):
-        if not _LIST_MARKER_RE.match(lines[position]):
-            output.append(lines[position])
-            position += 1
-            continue
-
-        start = position
-        while position < len(lines) and _LIST_MARKER_RE.match(lines[position]):
-            position += 1
-        token = f"@@WIKILISTBLOCKTOKEN{index}@@"
-        while token in wikitext:
-            index += 1
-            token = f"@@WIKILISTBLOCKTOKEN{index}@@"
-        blocks[token] = "".join(lines[start:position])
-        output.append(token)
-        index += 1
-    return "".join(output), blocks
-
-
-def _template_block_marker(template: Template) -> tuple[str, str] | None:
-    """执行模板blockmarker的处理逻辑。"""
-    name = re.sub(r"[\s/_-]+", "", str(template.name).casefold())
-    for suffix in _TEMPLATE_BLOCK_OPENERS:
-        if name.endswith(suffix):
-            return "open", name[:-len(suffix)]
-    for suffix in _TEMPLATE_BLOCK_CLOSERS:
-        if name.endswith(suffix):
-            return "close", name[:-len(suffix)]
-    return None
-
-
-def _outermost_template_block_ranges(nodes: Sequence[Any]) -> dict[int, int]:
-    """执行outermost模板blockranges的处理逻辑。"""
-    stack: list[tuple[int, str]] = []
-    pairs: list[tuple[int, int]] = []
-    for index, node in enumerate(nodes):
-        if not isinstance(node, Template):
-            continue
-        marker = _template_block_marker(node)
-        if marker is None:
-            continue
-        direction, family = marker
-        if direction == "open":
-            stack.append((index, family))
-            continue
-        if not stack:
-            continue
-        open_index, open_family = stack[-1]
-        if family and family != open_family:
-            continue
-        stack.pop()
-        pairs.append((open_index, index))
-
-    outermost: dict[int, int] = {}
-    for start, end in sorted(pairs, key=lambda pair: (pair[0], -pair[1])):
-        if not any(outer_start < start and end < outer_end
-                   for outer_start, outer_end in outermost.items()):
-            outermost[start] = end
-    return outermost
-
-
-def _template_only_paragraph_node_indexes(nodes: Sequence[Any]) -> set[int]:
-    """执行模板仅段落nodeindexes的处理逻辑。"""
-    result: set[int] = set()
-    paragraph_templates: list[int] = []
-    has_non_template_content = False
-
-    def finish_paragraph() -> None:
-        """执行finish段落的处理逻辑。"""
-        nonlocal paragraph_templates, has_non_template_content
-        if paragraph_templates and not has_non_template_content:
-            result.update(paragraph_templates)
-        paragraph_templates = []
-        has_non_template_content = False
-
-    for index, node in enumerate(nodes):
-        if isinstance(node, Template):
-            paragraph_templates.append(index)
-            continue
-        if isinstance(node, Text):
-            text = str(node)
-            position = 0
-            for separator in re.finditer(r"\r?\n[ \t]*\r?\n", text):
-                if text[position:separator.start()].strip():
-                    has_non_template_content = True
-                finish_paragraph()
-                position = separator.end()
-            if text[position:].strip():
-                has_non_template_content = True
-            continue
-        if str(node).strip():
-            has_non_template_content = True
-    finish_paragraph()
-    return result
-
-
-def extract_and_templatize(
-    wikitext: str | None, page_id: Any,
-    comps: dict[str, list[tuple[str, str]]] | None = None,
-) -> tuple[str, dict[str, list[tuple[str, str]]]]:
-    """执行提取与templatize的处理逻辑。"""
-    if comps is None:
-        comps = {t: [] for t in COMPONENT_TYPES}
-
-    def take(ctype: str, text: str) -> str:
-        """执行take的处理逻辑。"""
-        cid = _component_id(ctype, page_id, len(comps[ctype]) + 1)
-        comps[ctype].append((cid, text))
-        return f"♣  ♣  ♣  {cid}♣  ♣  ♣"
-
-    # Phase 1: block containers and independent-template lines. Top-level node
-    # scan; inner content is subsumed into the enclosing node. A standalone
-    # template's opening and closing boundaries must be the only non-whitespace
-    # content on their respective physical lines.
-    source = wikitext or ""
-    code = mwparserfromhell.parse(source)
-    nodes = list(code.nodes)
-    block_ranges = _outermost_template_block_ranges(nodes)
-    template_only_paragraph_nodes = _template_only_paragraph_node_indexes(nodes)
-    parts: list[str] = []
-    offset = 0
-    node_index = 0
-    while node_index < len(nodes):
-        node = nodes[node_index]
-        raw_node = str(node)
-        node_start = offset
-        node_end = node_start + len(raw_node)
-        block_end_index = block_ranges.get(node_index)
-        if block_end_index is not None:
-            block_end = node_end
-            for inner_index in range(node_index + 1, block_end_index + 1):
-                block_end += len(str(nodes[inner_index]))
-            parts.append(take("independent_template", source[node_start:block_end]))
-            offset = block_end
-            node_index = block_end_index + 1
-            continue
-        offset = node_end
-        if isinstance(node, Template) and str(node.name).strip().lower().startswith("infobox"):
-            parts.append(take("infobox", raw_node))
-        elif isinstance(node, Template):
-            marker = _template_block_marker(node)
-            line_start = source.rfind("\n", 0, node_start) + 1
-            line_end = source.find("\n", node_end)
-            if line_end < 0:
-                line_end = len(source)
-            if (
-                marker is None
-                and
-                (
-                    (
-                        not source[line_start:node_start].strip()
-                        and not source[node_end:line_end].strip()
-                    )
-                    or node_index in template_only_paragraph_nodes
-                )
-            ):
-                parts.append(take("independent_template", raw_node))
-            else:
-                parts.append(raw_node)
-        elif isinstance(node, Tag) and str(node.tag).strip().lower() == "table":
-            parts.append(take("table", raw_node))
-        else:
-            parts.append(raw_node)
-        node_index += 1
-
-    # Phase 2: remaining inline components.  Lists become inert temporary
-    # markers only while this pass runs, and are restored before returning.
-    # Re-parse; the club-delimited placeholders remain ordinary text. A <ref> or
-    # File:/Image: link subsumes anything inside it (it is a single top-level node).
-    #   * <ref>...</ref>             -> ref table, replaced by a placeholder
-    #   * [[File:...]]              -> file table, replaced by a placeholder
-    #   * [[Image:...]]             -> image table, replaced by a placeholder
-    #   * other [[...]]              -> wikilinks table, kept raw in text_process
-    #   * [url ...] / bare url       -> external_links table, replaced by a placeholder
-    inline_source, list_blocks = _protect_list_blocks("".join(parts))
-    code2 = mwparserfromhell.parse(inline_source)
-    parts2: list[str] = []
-    for node in code2.nodes:
-        if isinstance(node, Tag) and str(node.tag).strip().lower() == "ref":
-            parts2.append(take("ref", str(node)))
-        elif isinstance(node, Wikilink):
-            title = str(node.title).strip()
-            if title.lower().startswith("image:"):
-                parts2.append(take("image", str(node)))
-            elif title.lower().startswith("file:"):
-                parts2.append(take("file", str(node)))
-            else:
-                cid = _component_id("wikilinks", page_id, len(comps["wikilinks"]) + 1)
-                comps["wikilinks"].append((cid, title))
-                parts2.append(str(node))  # keep the raw [[...]] in text_process
-        elif isinstance(node, ExternalLink):
-            parts2.append(take("external_links", str(node.url).strip()))
-        else:
-            parts2.append(str(node))
-
-    # 仅保留组件提取产生的占位符，不再额外调整换行或首尾空白。
-    text = "".join(parts2)
-    for token, raw_list in list_blocks.items():
-        text = text.replace(token, raw_list)
-
-    return text, comps
-
 
 def _section_part(section: Any) -> str:
     """text_process 的一个拼接单元：原始 ``== Title ==`` 标题行 + 节体。
@@ -372,9 +136,8 @@ def build_bundle(
                 for paragraph in extract_paragraphs(sections, row["page_id"])
             }
             components = {t: [] for t in COMPONENT_TYPES}
-            # MWP-derived component placeholders are the WTP input.  There is
-            # intentionally no per-template filtering, no skip-section branch,
-            # and no format-block deletion.
+            # 使用 MWP 生成的组件占位符作为 WTP 输入。这里刻意不按模板过滤，
+            # 不跳过章节，也不删除格式块。
             for section in sections:
                 transformed, _ = extract_and_templatize(
                     section.text, row["page_id"], components
@@ -383,10 +146,8 @@ def build_bundle(
             text_process = "\n\n".join(_section_part(section) for section in sections)
             paragraphs = extract_paragraphs(sections, row["page_id"])
 
-            # When a reference/link-like TOC root appears, that paragraph and
-            # every following paragraph in the article stay paragraph-only.
-            # Their toc may include a subsection suffix such as
-            # ``References:Books``.
+            # 遇到参考资料或链接类目录根节点后，该段及文章中后续所有段落都只保留为段落。
+            # 这些段落的 toc 可能带有子章节后缀，例如 ``References:Books``。
             wtp_paragraphs = []
             skip_remaining = False
             for paragraph in paragraphs:
@@ -403,8 +164,7 @@ def build_bundle(
                     continue
                 wtp_paragraphs.append(paragraph)
 
-            # One page context, then isolated MWP/WTP handling for each
-            # paragraph that was not skipped above.
+            # 先建立页面上下文，再分别对上面未跳过的段落执行 MWP/WTP 处理。
             if wtp_paragraphs:
                 begin_page(str(row["page_title"]))
             for paragraph in wtp_paragraphs:
@@ -483,7 +243,7 @@ def process_batch(
 
 
 # =========================================================================== #
-# Generic engine (usually no changes needed): config, connection, orchestration.
+# 通用引擎（通常无需修改）：配置、连接和任务编排。
 # =========================================================================== #
 def quote_ident(name: str) -> str:
     """执行转义标识符的处理逻辑。"""
@@ -552,10 +312,9 @@ def connect(
     db_timeout: float = 300.0,
     login_timeout: float = 60.0,
 ) -> Any:
-    # timeout = query timeout (seconds), prevents cur.execute()/executemany() from
-    # blocking forever on network jitter or a stalled server (task-timeout only
-    # covers parsing, not DB reads/writes); 0 = unlimited.
-    # login_timeout = connect/login timeout (seconds), prevents connect itself from hanging.
+    # timeout 是查询超时时间（秒），防止 cur.execute()/executemany() 因网络抖动或服务器无响应而一直阻塞。
+    # task_timeout 只限制解析时间，不限制数据库读写；设为 0 表示不限制。
+    # login_timeout 是连接/登录超时时间（秒），防止建立连接时一直等待。
     """执行connect的处理逻辑。"""
     return pymssql.connect(
         server=config["host"],
@@ -571,10 +330,9 @@ def connect(
 
 
 # --------------------------------------------------------------------------- #
-# Processed-text writer: processed, one row per article, MERGE upsert
-# on revision_id (idempotent). text_process = wikitext with components replaced by
-# their ids. Upserts run as chunked multi-row MERGE statements -- one round trip
-# per chunk instead of one per row.
+# 处理文本写入器：每篇文章在 processed 表中占一行，并按 revision_id 执行可重复的 MERGE upsert。
+# text_process 是组件已替换为对应 ID 的维基文本。upsert 使用分块的多行 MERGE 语句，
+# 每个数据块只需一次数据库往返，而不是每行往返一次。
 # --------------------------------------------------------------------------- #
 class ProcessedTextWriter:
     _COLS = ("revision_id", "page_id", "page_title", "namespace", "text_process", "parse_error")
@@ -646,9 +404,8 @@ class ProcessedTextWriter:
         """将当前缓冲的数据写入目标位置。"""
         if not self._buffer:
             return
-        # Chunked multi-row MERGE: one round trip per chunk instead of one per
-        # row; the chunk size keeps each statement below SQL Server's
-        # 2100-parameter limit.
+        # 使用分块的多行 MERGE，每个数据块只需一次数据库往返；
+        # 控制块大小，使每条语句的参数数低于 SQL Server 的 2100 个上限。
         rows_per_stmt = max(1, 2000 // len(self._COLS))
         row = "(" + ", ".join(["%s"] * len(self._COLS)) + ")"
         try:
@@ -672,19 +429,16 @@ class ProcessedTextWriter:
 
 
 # --------------------------------------------------------------------------- #
-# Component writer: one table per component type (component_<type>).
-# Rows come pre-labelled with their <type>_id (assigned per-page in the worker so
-# they match the ids embedded in text_process) plus the owning page_id.
-# Delete-then-insert per flush, keyed on page_id (like the hierarchical writers
-# keyed on revision_id): every row of every page seen since the last flush is
-# deleted first -- including pages whose parse produced no components of that
-# type -- so rows from an older run, or a changed parse chain that now emits
-# fewer (or zero) components, are cleaned up automatically (stale-row safe).
+# 组件写入器：每种组件类型对应一张 component_<type> 表。
+# 行记录预先带有 <type>_id（由工作进程按页面分配，与 text_process 中嵌入的 ID 一致）
+# 以及所属页面的 page_id。
+# 每次 flush 都按 page_id 先删后插（层级写入器则按 revision_id 操作）：先删除自上次
+# flush 以来处理过的所有页面的记录，包括本次解析没有生成该类型组件的页面。这样可以
+# 自动清除旧任务遗留的行，以及解析流程变更后不再生成或生成数量减少的陈旧记录。
 #
-# Each table carries a UNIQUE constraint on <type>_id (a duplicate id fails
-# loudly at insert instead of accumulating silent dup rows) and a page_id index
-# for the flush DELETE to seek; both live in the CREATE TABLE since tables are
-# created fresh at startup.
+# 每张表都对 <type>_id 设置 UNIQUE 约束，重复 ID 会在插入时明确报错，避免静默累积重复行；
+# 同时为 page_id 建立索引，以加速 flush 时的 DELETE。表在启动时新建，因此这些约束和索引
+# 都在 CREATE TABLE 语句中定义。
 # --------------------------------------------------------------------------- #
 class ComponentWriter:
     def __init__(
@@ -705,10 +459,9 @@ class ComponentWriter:
         self._tables = {t: qualified_name(schema, name) for t, name in self._table_names.items()}
         self._object_names = dict(self._tables)
         self._buffers: dict[str, list[tuple[int, str, str]]] = {t: [] for t in COMPONENT_TYPES}
-        # Pages seen since the last flush: the per-type DELETE keys. Every page
-        # of the batch is included, even when its parse produced no rows for a
-        # type -- otherwise stale rows of pages whose components vanished
-        # entirely would never be deleted.
+        # 记录自上次 flush 以来处理过的页面，作为各组件表 DELETE 的键。
+        # 批次中的每个页面都会记录，即使解析没有生成某种组件；否则组件已完全消失的页面
+        # 会残留旧记录，无法被删除。
         self._pending_pages: set[int] = set()
         self.written: dict[str, int] = {t: 0 for t in COMPONENT_TYPES}
         self._conn = connect(
@@ -720,7 +473,7 @@ class ComponentWriter:
         """执行创建tables的处理逻辑。"""
         with self._conn.cursor() as cur:
             for t, q in self._tables.items():
-                # Constraint/index names are database-scoped, hence the table name inside.
+        # 约束和索引名称在数据库范围内唯一，因此名称中包含表名。
                 uq = quote_ident(f"UQ_{self._table_names[t]}_id")
                 ix = quote_ident(f"IX_{self._table_names[t]}_page")
                 cur.execute(f"""
@@ -744,8 +497,8 @@ class ComponentWriter:
         for b in bundles:
             self._pending_pages.add(b["page_id"])
             for t, items in b["components"].items():
-                # items are (component_id, text); prefix the owning page_id,
-                # taken from the bundle (the worker side stays unchanged).
+        # items 中的元素为 (component_id, text)；从 bundle 中取出所属 page_id 并添加到记录前面，
+        # 工作进程侧无需变更。
                 self._buffers[t].extend((b["page_id"], cid, text) for cid, text in items)
         if any(len(buf) >= self.batch_size for buf in self._buffers.values()):
             self.flush()
@@ -756,10 +509,9 @@ class ComponentWriter:
             return
         try:
             for t, buf in self._buffers.items():
-                # Delete-then-insert, one transaction: the delete covers ALL
-                # rows of every page seen since the last flush (even pages
-                # whose parse produced no rows for this type), so a page's
-                # component set is fully replaced (stale-row safe).
+            # 在一个事务中先删后插：删除自上次 flush 以来处理过的每个页面的所有记录，
+            # 包括本次解析没有生成该类型组件的页面，从而完整替换这些页面的组件集合，
+            # 并清除陈旧记录。
                 _delete_by_keys(
                     self._conn, self._tables[t], "page_id",
                     self._pending_pages,
@@ -771,10 +523,8 @@ class ComponentWriter:
                         buf,
                     )
             self._conn.commit()
-            # Counters and buffer clearing only after a successful commit: on
-            # failure the rollback undoes every type's writes, so the buffers
-            # must survive for the close() retry and `written` must not count
-            # uncommitted rows.
+            # 只有成功提交后才更新计数器并清空缓冲区。失败时 rollback 会撤销所有类型的写入，
+            # 因此缓冲区必须保留，以便 close() 重试；`written` 也不能统计未提交的行。
             for t, buf in self._buffers.items():
                 if buf:
                     self.written[t] += len(buf)
@@ -791,13 +541,10 @@ class ComponentWriter:
 
 
 # --------------------------------------------------------------------------- #
-# Hierarchical writers: sections / paragraphs / sentences, one row per
-# section / paragraph / sentence. Delete-then-insert per flush (like
-# API-Parser): the rows of the revisions in the batch are deleted and
-# re-inserted, so stale detail rows from previous runs (or a changed parse
-# chain) are cleaned up automatically. Each revision_id appears in exactly
-# one flush per run, so the delete never removes rows that are not re-inserted
-# in the same transaction.
+# 层级写入器：sections / paragraphs / sentences 分别按章节、段落和句子一行写入。
+# 每次 flush 都像 API-Parser 一样先删后插：删除批次中各 revision 的旧记录再重新写入，
+# 从而自动清理旧任务或解析流程变更后遗留的陈旧详情行。每个 revision_id 在一次运行中
+# 只会出现在一个 flush 批次里，因此删除操作不会移除本次事务中没有重新写入的记录。
 # --------------------------------------------------------------------------- #
 def _delete_by_keys(
     conn: Any,
@@ -848,7 +595,7 @@ def _insert_multirow(
 
 
 class SectionsWriter:
-    """sections: delete-then-insert per flush (stale-row safe)."""
+    """sections 写入器：每次 flush 先删后插，以清除陈旧记录。"""
 
     _COLS = (
         "revision_id", "page_id", "page_title", "section_no", "toc",
@@ -916,8 +663,7 @@ class SectionsWriter:
         if not self._buffer:
             return
         try:
-            # Delete-then-insert, one transaction: the delete targets exactly
-            # the revisions being re-inserted below.
+            # 在一个事务中先删后插；删除范围恰好是下面要重新写入的 revisions。
             _delete_by_revision_ids(self._conn, self.qualified, self._buffer)
             _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
             self._conn.commit()
@@ -934,7 +680,7 @@ class SectionsWriter:
 
 
 class ParagraphsWriter:
-    """paragraph: delete-then-insert per flush (stale-row safe)."""
+    """paragraph 写入器：每次 flush 先删后插，以清除陈旧记录。"""
 
     _COLS = (
         "revision_id", "page_id", "page_title", "section_no", "paragraph_no",
@@ -1007,8 +753,7 @@ class ParagraphsWriter:
         if not self._buffer:
             return
         try:
-            # Delete-then-insert, one transaction: the delete targets exactly
-            # the revisions being re-inserted below.
+            # 在一个事务中先删后插；删除范围恰好是下面要重新写入的 revisions。
             _delete_by_revision_ids(self._conn, self.qualified, self._buffer)
             _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
             self._conn.commit()
@@ -1025,7 +770,7 @@ class ParagraphsWriter:
 
 
 class WtpIntermediateWriter:
-    """Persist non-skipped WTP boundaries, delete-then-insert per revision."""
+    """保存未跳过的 WTP 边界，并按 revision 先删后插。"""
 
     _COLS = (
         "revision_id", "page_id", "page_title", "section_no", "paragraph_no",
@@ -1127,7 +872,7 @@ class WtpIntermediateWriter:
 
 
 class SentencesWriter:
-    """sentence: delete-then-insert per flush (stale-row safe)."""
+    """sentence 写入器：每次 flush 先删后插，以清除陈旧记录。"""
 
     _COLS = ("revision_id", "page_id", "page_title", "section_no", "paragraph_no",
              "sentence_no", "toc", "raw_text", "text")
@@ -1219,7 +964,7 @@ class SentencesWriter:
 
 
 # --------------------------------------------------------------------------- #
-# Fan one stream of bundles out to several sink writers (each add_rows / close).
+# 将一条 bundle 数据流分发给多个写入器（分别调用其 add_rows / close）。
 # --------------------------------------------------------------------------- #
 class FanoutWriter:
     def __init__(self, *writers: Any) -> None:
@@ -1239,7 +984,7 @@ class FanoutWriter:
     def close(self) -> None:
         """刷新未写入的数据并释放相关资源。"""
         first_err: BaseException | None = None
-        for w in self._writers:  # close every sink even if one fails
+        for w in self._writers:  # 即使某个写入器失败，也要关闭其余写入器
             try:
                 w.close()
             except BaseException as exc:  # noqa: BLE001
@@ -1250,7 +995,7 @@ class FanoutWriter:
 
 
 class CheckpointCoordinator:
-    """Mark a batch terminal only after raw and processed outputs both commit."""
+    """仅当原始数据和处理结果都提交后，才将批次标记为完成。"""
 
     def __init__(self, store: Any) -> None:
         """初始化对象所需的状态和资源。"""
@@ -1284,15 +1029,14 @@ class CheckpointCoordinator:
 
 
 # --------------------------------------------------------------------------- #
-# Multi-stage pipeline orchestration + per-stage independent speed monitoring
+# 多阶段流水线编排，并独立监控各阶段速度。
 #
-#   Reader thread --futures_q--> Collector thread --write_q--> Writer thread
-#        │(read)                    │(parse, await result)       │(write)
-#    Read bar                   Parse bar                    Write bar
+#   读取线程 --futures_q--> 汇总线程 --write_q--> 写入线程
+#        │（读取）                  │（解析并等待结果）          │（写入）
+#    读取进度条                 解析进度条                  写入进度条
 #
-# Each of the tqdm speed bars is updated by exactly one thread, showing the live
-# read/parse/write rates in sync. Two bounded queues provide backpressure: when
-# any stage slows down, upstream blocks automatically and memory stays constant.
+# 每个 tqdm 速度条只由一个线程更新，实时显示同步的读取、解析和写入速度。
+# 两个有界队列负责背压：任何阶段变慢时，上游会自动阻塞，内存占用保持稳定。
 # --------------------------------------------------------------------------- #
 _SENTINEL = object()
 
@@ -1315,7 +1059,7 @@ def _run_core(
     """执行运行核心的处理逻辑。"""
     if checkpoint is not None and raw_writer is None:
         raise ValueError("A checkpoint requires a raw writer acknowledgement.")
-    # Independent speed bars: Read / Parse / Write (+ Raw when raw writing is enabled).
+    # 各阶段分别显示速度条：读取 / 解析 / 写入（启用原始数据写入时还会显示 Raw）。
     bar_read = tqdm(
         total=total, desc="Read ", unit="row", position=0, file=sys.stdout
     )
@@ -1334,9 +1078,8 @@ def _run_core(
     futures_q: "queue.Queue[Any]" = queue.Queue(maxsize=workers * 2)
     write_q: "queue.Queue[Any]" = queue.Queue(maxsize=workers * 2)
     raw_q: "queue.Queue[Any] | None" = queue.Queue(maxsize=workers * 2) if raw_writer else None
-    # First-error semantics: multiple threads may error at once; a lock guarantees
-    # only the "first" exception is kept as the primary cause -- deterministic
-    # order, not relying on CPython's list.append happening to be atomic.
+    # 多个线程可能同时出错；通过锁只保留最先记录的异常作为主要原因，
+    # 确保顺序确定，不依赖 CPython 的 list.append 恰好具有原子性。
     error_lock = threading.Lock()
     first_error: list[BaseException] = []
     executor = ProcessPoolExecutor(
@@ -1345,17 +1088,16 @@ def _run_core(
         initargs=(wtp_settings,),
     )
 
-    # Global stop signal: any thread that errors sets it. All put/get poll it, so
-    # when a downstream thread exits first, upstream will not block forever on a
-    # full queue, and join() will not wait forever either.
+    # 全局停止信号：任何线程出错都会设置此信号。所有 put/get 操作都会轮询它，
+    # 因此下游线程先退出时，上游不会因队列已满而永久阻塞，join() 也不会一直等待。
     stop = threading.Event()
-    # Hard abort: set when a worker wedges past the timeout; teardown force-kills
-    # the processes + does not wait on shutdown.
+    # 强制中止信号：工作进程超过超时时间仍无响应时设置；清理阶段会强制结束进程，
+    # 并且不等待其正常关闭。
     hard_abort = threading.Event()
-    POLL = 0.2  # seconds: poll interval while put/get/result blocks (balances backpressure and stop responsiveness)
+    POLL = 0.2  # put/get/result 阻塞时的轮询间隔（秒），兼顾背压和停止响应速度
 
-    # Data quality: accumulate failure totals for progress and final summary.
-    # Individual records are written only through failure_logger (the run log).
+    # 累计失败数量，用于进度显示和最终汇总。
+    # 单条失败记录只通过 failure_logger 写入运行日志。
     failed_total = 0
     paragraph_total = 0
     paragraph_succeeded = 0
@@ -1365,7 +1107,7 @@ def _run_core(
     def fail(exc: BaseException) -> None:
         """执行失败的处理逻辑。"""
         with error_lock:
-            if not first_error:  # record only the first error, ignore later ones
+            if not first_error:  # 只记录第一个错误，忽略后续错误
                 first_error.append(exc)
         stop.set()
 
@@ -1396,7 +1138,7 @@ def _run_core(
             for batch in batches:
                 if stop.is_set():
                     break
-                if max_count is not None:  # limit: truncate the batch that crosses the cap, stop once enough is read
+                if max_count is not None:  # 达到上限时截断跨越上限的批次，并在读取足量数据后停止
                     remaining = max_count - submitted
                     if remaining <= 0:
                         break
@@ -1409,9 +1151,9 @@ def _run_core(
                     if wtp_settings else 15.0
                 )
                 fut = executor.submit(process_batch, batch, expand_timeout)
-                # Attach this batch's keys to the future (lightweight), to locate problem data on timeout.
+                # 将此批次的键轻量地附加到 future，以便超时时定位问题数据。
                 keys = [row[key_column] for row in batch]
-                # Fan-out: the same batch is both written to the raw table (if enabled) and sent to the pool to parse.
+                # 将同一批次分流：启用时写入原始数据表，同时发送到进程池解析。
                 if raw_q is not None and not safe_put(raw_q, (batch_id, batch)):
                     break
                 if not safe_put(futures_q, (fut, keys, batch_id)):
@@ -1423,7 +1165,7 @@ def _run_core(
         except BaseException as exc:  # noqa: BLE001
             fail(exc)
         finally:
-            safe_put(futures_q, _SENTINEL)  # does not block when stop is set
+            safe_put(futures_q, _SENTINEL)  # 设置停止信号后不会阻塞
             if raw_q is not None:
                 safe_put(raw_q, _SENTINEL)
 
@@ -1449,9 +1191,9 @@ def _run_core(
                     break
                 fut, keys, batch_id = item
                 try:
-                    result = wait_result(fut)  # BatchResult / _SENTINEL (stop)
+                    result = wait_result(fut)  # BatchResult 或 _SENTINEL（停止信号）
                 except FuturesTimeout:
-                    # A worker task is wedged/very slow: locate the problem keys, hard-abort, fail fast.
+                    # 工作任务卡住或严重变慢：定位问题键，强制中止并尽快报错。
                     lo, hi = (min(keys), max(keys)) if keys else ("?", "?")
                     msg = (
                         f"worker parse timed out (> {task_timeout}s), "
@@ -1462,7 +1204,7 @@ def _run_core(
                     hard_abort.set()
                     fail(TimeoutError(msg))
                     break
-                if result is _SENTINEL:  # woken up while stop is set
+                if result is _SENTINEL:  # 停止信号设置后被唤醒
                     break
                 bar_parse.update(len(result.records))
                 paragraph_total += result.paragraphs_total
@@ -1536,18 +1278,16 @@ def _run_core(
         for t in threads:
             t.join()
     finally:
-        # Cleanup is isolated step by step: one failing step does not affect the
-        # others; exceptions are collected and adjudicated together, and a cleanup
-        # exception must never mask the real root cause (first_error / an
-        # exception propagating out of the try).
+        # 清理步骤彼此隔离：某一步失败不会影响其他步骤。收集所有异常后统一判定，
+        # 清理异常绝不能掩盖真正的根因（first_error 或 try 中传播出的异常）。
         if hard_abort.is_set():
-            # Worker wedged: force-kill the processes and do not wait, otherwise shutdown(wait=True) would hang too.
+            # 工作进程卡住：强制结束进程且不等待，否则 shutdown(wait=True) 也会一直挂起。
             _safe(lambda: terminate_workers(executor))
             _safe(lambda: executor.shutdown(wait=False, cancel_futures=True))
         else:
-            # Normal / soft error: cancel_futures cancels queued tasks so we need not wait for the whole queue to drain.
+            # 正常结束或可恢复错误：cancel_futures 会取消排队任务，无需等待整个队列处理完。
             _safe(lambda: executor.shutdown(wait=True, cancel_futures=True))
-        _safe(processed_writer.close)  # includes the final flush; a failure here is a real error (should propagate when there is no root cause)
+        _safe(processed_writer.close)  # 包含最后一次 flush；若此处失败且没有其他根因，应将其作为真实错误传播
         if raw_writer is not None:
             _safe(raw_writer.close)
         _safe(source_close)
@@ -1556,10 +1296,9 @@ def _run_core(
         if bar_raw is not None:
             _safe(bar_raw.close)
 
-    # Adjudicate the primary cause: if first_error exists, it wins (cleanup
-    # exceptions are downgraded to warnings); otherwise a cleanup exception (e.g.
-    # a failed final flush = possible data loss) is itself the primary cause and
-    # must propagate.
+    # 判定主要原因：如果存在 first_error，则以它为准（清理异常降级为警告）；
+    # 否则，清理异常本身就是主要原因，例如最后一次 flush 失败可能造成数据丢失，
+    # 因此必须传播该异常。
     primary = first_error[0] if first_error else (cleanup_errors[0] if cleanup_errors else None)
     for exc in cleanup_errors:
         if exc is not primary:

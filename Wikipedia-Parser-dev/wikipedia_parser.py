@@ -41,7 +41,7 @@ from contextlib import redirect_stderr
 from pathlib import Path
 from typing import Callable
 
-# pipeline/下的模块：XML 侧（原始写入器 + 流式批处理源）和处理引擎。将其放在 sys.path 第一位，这样多进程 spawned 的 worker 也可以通过模块名重新导入 engine（其中包含 process_batch）。
+# pipeline/下的模块：XML 侧（原始写入器 + 流式批处理源）和处理引擎。将其放在 sys.path 第一位，这样多进程启动的 worker 也可以通过模块名重新导入 engine（其中包含 process_batch）。
 sys.path.insert(0, str(Path(__file__).resolve().parent / "pipeline"))
 import engine  # noqa: E402
 from checkpoint import SQLServerCheckpointStore, source_id_for_path  # noqa: E402

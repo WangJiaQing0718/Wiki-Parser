@@ -1,8 +1,5 @@
-"""针对单独安装的 ProjectB 包的狭小适配器。
-
-worker 拥有自己的 Wtp 实例。它打开选定的版本化 SQLite DB
-只读，并禁用 Wikidata HTTP 回退，因此缓存未命中不能阻塞
-批次或更改数据资产。
+"""针对单独安装的 WTP 包的适配器。
+worker 拥有自己的 Wtp 实例,它打开选定的版本化 SQLite DB。
 """
 
 from __future__ import annotations
@@ -28,10 +25,6 @@ def load_wtp_settings(config: Mapping[str, Any]) -> dict[str, Any]:
         "lang_code": str(config.get("lang_code", "en")),
         "project": str(config.get("project", "wikipedia")),
         "expand_timeout": float(config.get("expand_timeout", 60.0)),
-        # 这些默认值是为批次流水线刻意设置的。ProjectB
-        # 仍保留其正常可写/在线模式用于独立使用。
-        # "read_only": bool(config.get("read_only", True)),
-        # "wikidata_offline": bool(config.get("wikidata_offline", True)),
     }
 
 
@@ -57,8 +50,6 @@ def initialize_wtp_worker(settings: Mapping[str, Any] | None) -> None:
         project=settings["project"],
         quiet=True,
         quiet_output=True,
-        # read_only=settings["read_only"],
-        # wikidata_offline=settings["wikidata_offline"],
     )
 
 

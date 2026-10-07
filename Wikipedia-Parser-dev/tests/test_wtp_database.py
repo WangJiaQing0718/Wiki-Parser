@@ -40,7 +40,7 @@ def _load_wikidata_script() -> object:
 
 class WtpDatabaseTest(unittest.TestCase):
     def test_wikidata_script_resolves_the_given_filename(self) -> None:
-        """验证：testwikidatascriptresolvesthegivenfilename的预期行为。"""
+        """验证 Wikidata 脚本能根据给定文件名解析出对应路径。"""
         self.assertTrue(WIKIDATA_SCRIPT.is_file())
         script = _load_wikidata_script()
         with tempfile.TemporaryDirectory() as tmp:
@@ -62,12 +62,12 @@ class WtpDatabaseTest(unittest.TestCase):
             self.assertEqual(f"WTP database: {db_path}\n", output.getvalue())
 
     def test_uncompressed_xml_is_rejected_before_build(self) -> None:
-        """验证：testuncompressedxml为rejected之前构建的预期行为。"""
+        """验证构建前会拒绝未压缩的 XML 文件。"""
         with self.assertRaisesRegex(ValueError, "xml.bz2"):
             wtp_database_path_for_dump(Path("simplewiki-20260801-pages-articles.xml"))
 
     def test_build_closes_wtp_connection_when_dump_import_fails(self) -> None:
-        """验证：test构建closeswtp连接when转储importfails的预期行为。"""
+        """验证转储导入失败时，构建流程会关闭 WTP 连接。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             db_path = Path(tmp) / "simplewiki-20260801-pages-articles-wtp-full.db"
@@ -100,7 +100,7 @@ class WtpDatabaseTest(unittest.TestCase):
             self.assertFalse(created_paths[0].exists())
 
     def test_missing_matching_database_is_built_from_dump(self) -> None:
-        """验证：test缺失matching数据库为builtfrom转储的预期行为。"""
+        """验证找不到匹配数据库时会根据转储文件构建数据库。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             dump.touch()
@@ -125,7 +125,7 @@ class WtpDatabaseTest(unittest.TestCase):
             self.assertEqual({0, 10, 828}, captured["namespace_ids"])
 
     def test_existing_matching_database_is_reused(self) -> None:
-        """验证：test已有matching数据库为reused的预期行为。"""
+        """验证已有的匹配数据库会被重新使用。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             dump.touch()
@@ -139,7 +139,7 @@ class WtpDatabaseTest(unittest.TestCase):
             build.assert_not_called()
 
     def test_legacy_configured_database_path_is_ignored(self) -> None:
-        """验证：test旧版configured数据库路径为ignored的预期行为。"""
+        """验证旧版配置中的数据库路径会被忽略。"""
         with tempfile.TemporaryDirectory() as tmp:
             dump = Path(tmp) / "simplewiki-20260801-pages-articles.xml.bz2"
             dump.touch()

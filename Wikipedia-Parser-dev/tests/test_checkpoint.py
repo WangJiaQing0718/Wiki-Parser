@@ -21,7 +21,7 @@ from wikipedia_parser import build_parser, progress_total_for_source  # noqa: E4
 
 class CheckpointRecordTest(unittest.TestCase):
     def test_parse_error_is_persisted_as_completed_with_errors(self) -> None:
-        """验证：testparse错误为persistedascompleted带有errors的预期行为。"""
+        """验证解析失败后，检查点仍会将该修订版标记为已完成并记录错误。"""
         records = terminal_records_for(
             "source-a",
             [
@@ -39,7 +39,7 @@ class CheckpointRecordTest(unittest.TestCase):
         )
 
     def test_filter_drops_only_terminal_revisions(self) -> None:
-        """验证：testfilterdrops仅终态revisions的预期行为。"""
+        """验证过滤器只会排除已处于终态的修订版。"""
         source = _ListSource(
             [
                 [{"revision_id": 1}],
@@ -54,7 +54,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertTrue(source.closed)
 
     def test_checkpoint_waits_for_raw_and_processed_commits(self) -> None:
-        """验证：test检查点waitsfor原始与已处理提交的预期行为。"""
+        """验证检查点会等待原始数据和处理结果都提交后再完成。"""
         store = _RecordingStore()
         gate = CheckpointCoordinator(store)
         bundles = [{"revision_id": 7, "page_id": 70, "parse_error": None}]
@@ -66,7 +66,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertEqual([bundles], store.committed)
 
     def test_xml_resume_is_enabled_by_default(self) -> None:
-        """验证：testxmlresume为enabledby默认的预期行为。"""
+        """验证 XML 断点续传默认处于启用状态。"""
         args = build_parser().parse_args(
             ["dump.xml.bz2", "--config", "config.json"]
         )
@@ -75,7 +75,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertFalse(args.retry_errors)
 
     def test_xml_progress_has_no_false_max_pages_total(self) -> None:
-        """验证：testxml进度hasnofalsemaxpages总数的预期行为。"""
+        """验证 XML 进度条不会把 max_pages 错当成实际总页数。"""
         self.assertIsNone(progress_total_for_source(is_xml=True, max_pages=20_000))
         self.assertEqual(
             20_000,
@@ -83,7 +83,7 @@ class CheckpointRecordTest(unittest.TestCase):
         )
 
     def test_pipeline_marks_checkpoint_after_both_writer_flushes(self) -> None:
-        """验证：test流水线marks检查点之后both写入器flushes的预期行为。"""
+        """验证流水线在两个写入器都完成 flush 后才标记检查点。"""
         raw_writer = _RecordingWriter()
         processed_writer = _RecordingWriter()
         store = _RecordingStore()
@@ -105,7 +105,7 @@ class CheckpointRecordTest(unittest.TestCase):
         self.assertEqual(8, store.committed[0][0]["revision_id"])
 
     def test_pipeline_logs_parse_failures_without_printing_them_to_the_terminal(self) -> None:
-        """验证：test流水线logsparsefailures不含printingthemtothe终态的预期行为。"""
+        """验证流水线会记录解析失败，但不会将失败详情打印到终端。"""
         writer = _RecordingWriter()
         logged: list[str] = []
         rows = [[{"revision_id": 9, "page_id": 90, "page_title": "Nine", "namespace": 0}]]
@@ -129,7 +129,7 @@ class CheckpointRecordTest(unittest.TestCase):
         terminal_write.assert_not_called()
 
     def test_pipeline_logs_failures_beyond_console_output_limit(self) -> None:
-        """验证：test流水线logsfailuresbeyondconsole输出limit的预期行为。"""
+        """验证超出控制台输出上限的失败记录仍会写入日志。"""
         writer = _RecordingWriter()
         logged: list[str] = []
         rows = [[{"revision_id": number, "page_id": number, "page_title": str(number), "namespace": 0}

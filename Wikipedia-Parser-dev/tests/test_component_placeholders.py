@@ -10,13 +10,13 @@ from pathlib import Path
 PIPELINE_DIR = Path(__file__).resolve().parents[1] / "pipeline"
 sys.path.insert(0, str(PIPELINE_DIR))
 
-from engine import extract_and_templatize  # noqa: E402
+from component_extractor import extract_and_templatize  # noqa: E402
 from sentence_extractor import _remove_ref_placeholders  # noqa: E402
 
 
 class ComponentPlaceholderTest(unittest.TestCase):
     def test_extracts_each_template_in_a_template_only_paragraph(self) -> None:
-        """验证：testextracts每个模板ina模板仅段落的预期行为。"""
+        """验证仅包含模板的段落中，每个模板都会被提取。"""
         merge = "{{Merge to|China|date=July 2026}}"
         about = "{{About|the People's Republic of China|Taiwan}}"
         infobox = "{{Infobox country\n| native_name = Zhongguo\n\n| common_name = China\n}}"
@@ -38,7 +38,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertIn("The '''People's Republic of China''' is in East Asia.", text_process)
 
     def test_extracts_multiline_top_level_template_with_nested_templates(self) -> None:
-        """验证：testextractsmultilinetoplevel模板带有nested模板的预期行为。"""
+        """验证多行顶层模板及其嵌套模板会被正确提取。"""
         taxobox = (
             "{{automatic taxobox\n"
             "| name = Life\n"
@@ -62,7 +62,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertNotIn("Long fossil range", text_process)
 
     def test_extracts_only_outermost_paired_template_blocks(self) -> None:
-        """验证：testextracts仅outermostpaired模板blocks的预期行为。"""
+        """验证只会提取最外层的成对模板区块。"""
         succession_block = (
             "{{S-start}}\n\n"
             "{{succession box|title=[[British Ambassador to France]]|years=1954-1960}}\n"
@@ -99,7 +99,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertIn("{{Unclosed start}}", text_process)
 
     def test_extracts_complete_templates_that_occupy_a_line(self) -> None:
-        """验证：testextractscomplete模板thatoccupyaline的预期行为。"""
+        """验证独占一行的完整模板会被提取。"""
         source = (
             "{{Merge to|China||discuss=Talk:China#Merging discussion (2026)|date=July 2026}}\n"
             "{{About|the People's Republic of China|the Republic of China}}\n"
@@ -138,8 +138,40 @@ class ComponentPlaceholderTest(unittest.TestCase):
         self.assertIn("Article text {{citation needed}}.", text_process)
         self.assertIn("independent_template-42-0003", text_process)
 
+    def test_extracts_adjacent_templates_that_together_occupy_a_line(self) -> None:
+        """相邻模板合起来独占一行时，逐个提取且不受后续文件内容影响。"""
+        more_sources = "{{More sources|date=March 2020}}"
+        cleanup = "{{Cleanup|date=March 2025}}"
+        infobox = "{{Infobox software license\n| name = GFDL\n}}"
+        file_link = "[[File:Heckert GNU white.svg|thumb|GNU logo]]"
+        source = (
+            f"{more_sources}{cleanup}\n"
+            f"{infobox}\n"
+            f"{file_link}\n"
+            "The GNU Free Documentation License is a copyleft license."
+        )
+
+        text_process, components = extract_and_templatize(source, page_id=42)
+
+        self.assertEqual(
+            [
+                ("independent_template-42-0001", more_sources),
+                ("independent_template-42-0002", cleanup),
+            ],
+            components["independent_template"],
+        )
+        self.assertEqual(
+            [("infobox-42-0001", infobox)],
+            components["infobox"],
+        )
+        self.assertEqual(
+            [("file-42-0001", file_link)],
+            components["file"],
+        )
+        self.assertIn("The GNU Free Documentation License is a copyleft license.", text_process)
+
     def test_extracted_components_use_club_delimited_placeholders(self) -> None:
-        """验证：testextractedcomponentsuseclubdelimitedplaceholders的预期行为。"""
+        """验证提取出的组件使用带 ♣ 分隔符的占位符。"""
         cases = (
             ("{{Infobox person}}", "infobox"),
             ("{|\n| cell\n|}", "table"),
@@ -161,7 +193,7 @@ class ComponentPlaceholderTest(unittest.TestCase):
                 self.assertNotIn("{{" + component_id + "}}", text_process)
 
     def test_sentence_processing_removes_club_delimited_ref_placeholders(self) -> None:
-        """验证：test句子processingremovesclubdelimitedrefplaceholders的预期行为。"""
+        """验证句子处理阶段会移除带 ♣ 分隔符的 ref 占位符。"""
         text = "Before ♣  ♣  ♣  ref-42-0001♣  ♣  ♣ after"
 
         self.assertEqual("Before  after", _remove_ref_placeholders(text))

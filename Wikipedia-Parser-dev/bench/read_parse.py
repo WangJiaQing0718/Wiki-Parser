@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""基准测试：仅阅读器 vs 完整流水线（空写入器）吞吐量，以定位读取/解析瓶颈。
+"""基准测试：比较仅读取器与完整流水线（空写入器）的吞吐量，以定位读取/解析瓶颈。
 
     python bench/read_parse.py [dump.xml.bz2] [N]
 

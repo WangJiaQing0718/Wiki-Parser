@@ -25,16 +25,15 @@ class Paragraph:
     # 例如 ``Section:Subsection:Topic``。
     toc: str | None
     text: str
-    # `text` is replaced with the final visible text by the WTP pipeline; the
-    # source remains available for storage and troubleshooting.
+    # WTP 流水线会将 `text` 替换为最终可见文本；原始内容仍会保留，
+    # 以便存储和排查问题。
     raw_wikitext: str | None = None
-    # The exact MWP-replaced input given to WTP and Wtp.expand() output before
-    # ProjectA converts it to paragraph text.
+    # 记录传入 WTP 的、由 MWP 替换后的原始输入，以及 ProjectA 将其转换为段落文本前
+    # Wtp.expand() 返回的结果。
     wtp_input: str | None = None
     expanded_wikitext: str | None = None
     parse_error: str | None = None
-    # True once a selected reference/link-like TOC root is reached; this and
-    # all following paragraphs are stored only in the paragraph table.
+    # 遇到选定的参考资料/链接类目录根节点后设为 True；该段及后续段落只写入段落表。
     wtp_skipped: bool = False
 
 
