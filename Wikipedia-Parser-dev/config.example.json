@@ -13,8 +13,6 @@
   "wtp": {
     "lang_code": "en",
     "project": "wikipedia",
-    "expand_timeout": 60,
-    "read_only": true,
-    "wikidata_offline": true
+    "expand_timeout": 60
   }
 }

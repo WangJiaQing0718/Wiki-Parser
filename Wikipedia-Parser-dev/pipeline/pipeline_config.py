@@ -96,7 +96,6 @@ def resolve_dump_file(
 def output_table_names_for_dump(
     dump_file: Path,
     *,
-    raw_table: str,
     processed_table: str,
     component_prefix: str,
     sections_table: str,
@@ -119,7 +118,7 @@ def output_table_names_for_dump(
         )
     suffix = f"_{match.group('date')}"
     return OutputTableNames(
-        raw=_with_wiki_prefix(raw_table) + suffix,
+        raw="wiki_latest" + suffix,
         processed=_with_wiki_prefix(processed_table) + suffix,
         component_prefix=_with_wiki_prefix(component_prefix),
         suffix=suffix,

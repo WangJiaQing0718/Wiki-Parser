@@ -25,8 +25,6 @@ Wikipedia 单遍 XML 转储解析流水线
 --------
 * ``wikipedia_parser.py``——CLI、配置加载、writer 编排。
 * ``pipeline/``——XML 来源、引擎核心、组件提取、WTP 整合、各类 writers。
-* ``tests/``——单元与回归测试。
-* ``docs/``——架构与开发指南。
 
 注意：首次运行前请确保 ``config.json`` 包含有效的 SQL Server 主机、用户名、密码及数据库名，且转储文件路径正确。
 """
@@ -91,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--table-prefix",
         default="wiki_component",
-        help="组件表基础名称的前缀；XML 输入写入 <prefix>_<type>_YYYYMMDD。默认 wiki_component。原始基础名称来自 config.table（默认 wiki_latest）。",
+        help="组件表基础名称的前缀；XML 输入写入 <prefix>_<type>_YYYYMMDD。默认 wiki_component。",
     )
     p.add_argument(
         "--sections-table",
@@ -227,7 +225,6 @@ def _run(
 
     output_tables = output_table_names_for_dump(
         dump_file,
-        raw_table=config.get("table") or "wiki_latest",
         processed_table=args.processed_table,
         component_prefix=args.table_prefix,
         sections_table=args.sections_table,

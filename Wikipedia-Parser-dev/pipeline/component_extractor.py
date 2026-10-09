@@ -6,7 +6,7 @@ import re
 from typing import Any, Sequence
 
 import mwparserfromhell
-from mwparserfromhell.nodes import ExternalLink, Tag, Template, Text, Wikilink
+from mwparserfromhell.nodes import Comment, ExternalLink, Tag, Template, Text, Wikilink
 
 # 组件类型；每种类型分别写入 component_<type> 表。
 COMPONENT_TYPES = (
@@ -16,6 +16,7 @@ COMPONENT_TYPES = (
 
 # 列表块刻意排除在组件提取之外，在 WTP 阶段保持原样，后续交由 sentence_extractor 处理。
 _LIST_MARKER_RE = re.compile(r"^[ \t]*[*#;:]")
+_COMPONENT_PLACEHOLDER_RE = re.compile(r"♣  ♣  ♣  ([^♣]+)♣  ♣  ♣")
 
 # 遵循通用 start/top/begin 和 end/bottom 后缀约定的成对模板名称
 _TEMPLATE_BLOCK_OPENERS = ("start", "top", "begin")
@@ -30,6 +31,16 @@ _TEMPLATE_BLOCK_NAME_PAIRS = (
 def _component_id(ctype: str, page_id: Any, seq: int) -> str:
     """根据组件类型、页面 ID 和序号生成唯一组件 ID。"""
     return f"{ctype}-{page_id}-{seq:04d}"
+
+
+def restore_component_sources(
+    wikitext: str, component_sources: dict[str, str]
+) -> str:
+    """将占位符还原为对应组件在源 wikitext 中的文本。"""
+    return _COMPONENT_PLACEHOLDER_RE.sub(
+        lambda match: component_sources.get(match.group(1), match.group(0)),
+        wikitext,
+    )
 
 
 def _protect_list_blocks(wikitext: str) -> tuple[str, dict[str, str]]:
@@ -185,23 +196,30 @@ def _template_only_line_node_indexes(source: str, nodes: Sequence[Any]) -> set[i
 
 
 def extract_and_templatize(
-    wikitext: str | None, page_id: Any,
+    wikitext: str | None,
+    page_id: Any,
     comps: dict[str, list[tuple[str, str]]] | None = None,
+    component_sources: dict[str, str] | None = None,
 ) -> tuple[str, dict[str, list[tuple[str, str]]]]:
-    """提取维基文本中的组件并替换为占位符，返回处理后文本和组件表。"""
+    """提取组件并替换为占位符；可选记录占位符对应的原始文本。"""
     if comps is None:
         comps = {t: [] for t in COMPONENT_TYPES}
 
-    def take(ctype: str, text: str) -> str:
+    def take(ctype: str, text: str, source_text: str | None = None) -> str:
         """登记一个组件并返回其占位符。"""
         cid = _component_id(ctype, page_id, len(comps[ctype]) + 1)
         comps[ctype].append((cid, text))
+        if component_sources is not None:
+            component_sources[cid] = text if source_text is None else source_text
         return f"♣  ♣  ♣  {cid}♣  ♣  ♣"
 
     # 阶段一：提取成对模板和独立模板行，并扫描顶层节点；内部内容由外层节点整体收录。
     # 独立模板的起止标记所在物理行只能包含该模板和空白字符。
     source = wikitext or ""
     code = mwparserfromhell.parse(source)
+    for comment in code.filter(recursive=True, forcetype=Comment):
+        code.remove(comment)
+    source = str(code)
     nodes = list(code.nodes)
     block_ranges = _outermost_template_block_ranges(nodes)
     template_only_paragraph_nodes = _template_only_paragraph_node_indexes(nodes)
@@ -266,6 +284,8 @@ def extract_and_templatize(
     code2 = mwparserfromhell.parse(inline_source)
     parts2: list[str] = []
     for node in code2.nodes:
+        if isinstance(node, Comment):
+            continue
         if isinstance(node, Tag) and str(node.tag).strip().lower() == "ref":
             parts2.append(take("ref", str(node)))
         elif isinstance(node, Wikilink):
@@ -279,7 +299,13 @@ def extract_and_templatize(
                 comps["wikilinks"].append((cid, title))
                 parts2.append(str(node))  # 在 text_process 中保留原始 [[...]]
         elif isinstance(node, ExternalLink):
-            parts2.append(take("external_links", str(node.url).strip()))
+            parts2.append(
+                take(
+                    "external_links",
+                    str(node.url).strip(),
+                    source_text=str(node),
+                )
+            )
         else:
             parts2.append(str(node))
 

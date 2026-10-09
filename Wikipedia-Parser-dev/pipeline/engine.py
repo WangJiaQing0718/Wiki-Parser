@@ -25,6 +25,7 @@ SectionsWriter、ParagraphsWriter 和 SentencesWriter 写入，每条记录各�
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import logging
 import queue
 import sys
@@ -43,7 +44,11 @@ from tqdm import tqdm
 from section_extractor import extract_sections  # noqa: E402
 from paragraph_extractor import extract_paragraphs  # noqa: E402
 from sentence_extractor import extract_sentences  # noqa: E402
-from component_extractor import COMPONENT_TYPES, extract_and_templatize  # noqa: E402
+from component_extractor import (  # noqa: E402
+    COMPONENT_TYPES,
+    extract_and_templatize,
+    restore_component_sources,
+)
 from wtp_integration import (  # noqa: E402
     analyze_wikitext,
     begin_page,
@@ -85,9 +90,8 @@ class ParagraphRunStats:
 # text_process 由 ProcessedTextWriter 写入，组件由 ComponentWriter 写入，
 # 层级记录由 SectionsWriter / ParagraphsWriter / SentencesWriter 写入。
 # =========================================================================== #
-# toc（转为小写后）属于此集合的章节会原样保留：不提取组件、不移除格式块，
-# 也不进行句子切分。（独立复制自 API-Parser 的 _SKIP_COMPONENT_TOCS。）
-_SKIP_COMPONENT_TOCS = frozenset({
+# 这些章节仍会提取组件，但跳过 WTP 展开和句子切分。
+_SKIP_WTP_TOC_ROOTS = frozenset({
     "references",
     "other websites",
     "related pages",
@@ -97,11 +101,6 @@ _SKIP_COMPONENT_TOCS = frozenset({
     "footnotes",
     "notes"
 })
-
-# 当前 WTP 流水线仍会从这些章节提取组件，但提取后会原样保存段落，
-# 不再展开段落，也不再将其切分为句子。
-_SKIP_WTP_TOC_ROOTS = _SKIP_COMPONENT_TOCS
-
 
 def should_skip_wtp_for_toc(toc: str | None) -> bool:
     """执行should跳过wtpfor目录的处理逻辑。"""
@@ -131,16 +130,13 @@ def build_bundle(
     try:
         if row.get("model") in (None, "wikitext"):
             sections = extract_sections(row.get("content"), row["page_id"])
-            raw_paragraphs = {
-                (paragraph.section_no, paragraph.paragraph_no): paragraph.text
-                for paragraph in extract_paragraphs(sections, row["page_id"])
-            }
             components = {t: [] for t in COMPONENT_TYPES}
+            component_sources: dict[str, str] = {}
             # 使用 MWP 生成的组件占位符作为 WTP 输入。这里刻意不按模板过滤，
             # 不跳过章节，也不删除格式块。
             for section in sections:
                 transformed, _ = extract_and_templatize(
-                    section.text, row["page_id"], components
+                    section.text, row["page_id"], components, component_sources
                 )
                 section.text = transformed
             text_process = "\n\n".join(_section_part(section) for section in sections)
@@ -152,9 +148,8 @@ def build_bundle(
             skip_remaining = False
             for paragraph in paragraphs:
                 transformed_wikitext = paragraph.text
-                paragraph.raw_wikitext = raw_paragraphs.get(
-                    (paragraph.section_no, paragraph.paragraph_no),
-                    transformed_wikitext,
+                paragraph.raw_wikitext = restore_component_sources(
+                    transformed_wikitext, component_sources
                 )
                 paragraph.wtp_skipped = (
                     skip_remaining or should_skip_wtp_for_toc(paragraph.toc)
@@ -566,13 +561,6 @@ def _delete_by_keys(
             )
 
 
-def _delete_by_revision_ids(
-    conn: Any, qualified: str, buffer: list[tuple[Any, ...]], chunk_size: int = 500
-) -> None:
-    """执行deletebyrevisionids的处理逻辑。"""
-    _delete_by_keys(conn, qualified, "revision_id", {row[0] for row in buffer}, chunk_size)
-
-
 def _insert_multirow(
     conn: Any,
     qualified: str,
@@ -617,6 +605,7 @@ class SectionsWriter:
         self.object_name = self.qualified
         self._unique_constraint = unique_constraint_name(table, "rev_secno")
         self._buffer: list[tuple[Any, ...]] = []
+        self._pending_revision_ids: set[Any] = set()
         self.written = 0
         self._conn = connect(
             config, autocommit=False, db_timeout=db_timeout, login_timeout=login_timeout
@@ -650,25 +639,31 @@ class SectionsWriter:
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
         """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
+            self._pending_revision_ids.add(b["revision_id"])
             for s in b["sections"]:
                 self._buffer.append(
                     (b["revision_id"], b["page_id"], b["page_title"],
                      s.section_no, s.toc, s.raw_text, s.text)
                 )
-        if len(self._buffer) >= self.batch_size:
+        if (len(self._buffer) >= self.batch_size
+                or len(self._pending_revision_ids) >= self.batch_size):
             self.flush()
 
     def flush(self) -> None:
         """将当前缓冲的数据写入目标位置。"""
-        if not self._buffer:
+        if not self._buffer and not self._pending_revision_ids:
             return
         try:
-            # 在一个事务中先删后插；删除范围恰好是下面要重新写入的 revisions。
-            _delete_by_revision_ids(self._conn, self.qualified, self._buffer)
-            _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
+            # 在一个事务中先删后插；空结果也会清理已处理 revisions 的旧行。
+            _delete_by_keys(
+                self._conn, self.qualified, "revision_id", self._pending_revision_ids
+            )
+            if self._buffer:
+                _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
             self._conn.commit()
             self.written += len(self._buffer)
             self._buffer.clear()
+            self._pending_revision_ids.clear()
         except Exception:
             self._conn.rollback()
             raise
@@ -702,6 +697,7 @@ class ParagraphsWriter:
         self.object_name = self.qualified
         self._unique_constraint = unique_constraint_name(table, "rev_secno_pno")
         self._buffer: list[tuple[Any, ...]] = []
+        self._pending_revision_ids: set[Any] = set()
         self.written = 0
         self._conn = connect(
             config, autocommit=False, db_timeout=db_timeout, login_timeout=login_timeout
@@ -739,26 +735,32 @@ class ParagraphsWriter:
     def add_rows(self, bundles: list[dict[str, Any]]) -> None:
         """接收一批数据并追加到内部缓冲区。"""
         for b in bundles:
+            self._pending_revision_ids.add(b["revision_id"])
             for p in b["paragraphs"]:
                 self._buffer.append(
                     (b["revision_id"], b["page_id"], b["page_title"],
                      p.section_no, p.paragraph_no, p.toc, p.raw_wikitext,
                      p.text, p.parse_error)
                 )
-        if len(self._buffer) >= self.batch_size:
+        if (len(self._buffer) >= self.batch_size
+                or len(self._pending_revision_ids) >= self.batch_size):
             self.flush()
 
     def flush(self) -> None:
         """将当前缓冲的数据写入目标位置。"""
-        if not self._buffer:
+        if not self._buffer and not self._pending_revision_ids:
             return
         try:
-            # 在一个事务中先删后插；删除范围恰好是下面要重新写入的 revisions。
-            _delete_by_revision_ids(self._conn, self.qualified, self._buffer)
-            _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
+            # 在一个事务中先删后插；空结果也会清理已处理 revisions 的旧行。
+            _delete_by_keys(
+                self._conn, self.qualified, "revision_id", self._pending_revision_ids
+            )
+            if self._buffer:
+                _insert_multirow(self._conn, self.qualified, self._COLS, self._buffer)
             self._conn.commit()
             self.written += len(self._buffer)
             self._buffer.clear()
+            self._pending_revision_ids.clear()
         except Exception:
             self._conn.rollback()
             raise
@@ -1147,8 +1149,8 @@ def _run_core(
                 batch_id = next_batch_id
                 next_batch_id += 1
                 expand_timeout = float(
-                    wtp_settings.get("expand_timeout", 15.0)
-                    if wtp_settings else 15.0
+                    wtp_settings.get("expand_timeout", 60.0)
+                    if wtp_settings else 60.0
                 )
                 fut = executor.submit(process_batch, batch, expand_timeout)
                 # 将此批次的键轻量地附加到 future，以便超时时定位问题数据。

@@ -35,7 +35,7 @@ class Section:
 
 # 匹配 section 标题：``== Title ==``（两侧都必须恰好两个等号）
 # 不匹配 ``=== Title ===``（三个及以上等号）
-_SECTION_HEADER_RE = re.compile(r"^(={2})([^=].*[^=])\1\s*$", re.MULTILINE)
+_SECTION_HEADER_RE = re.compile(r"^(={2})([^=](?:.*[^=])?)\1\s*$", re.MULTILINE)
 
 
 def extract_sections(wikitext: str | None, page_id: Any) -> List[Section]:
