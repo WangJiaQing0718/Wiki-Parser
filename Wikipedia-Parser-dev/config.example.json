@@ -1,0 +1,18 @@
+{
+  "sqlserver": {
+    "host": "10.0.0.10",
+    "port": 1433,
+    "user": "sa",
+    "password": "PASSWORD_123",
+    "database": "wiki",
+    "schema": "dbo"
+  },
+  "source": {
+    "dump_file": "../WikiData/simplewiki-20260901-pages-articles.xml.bz2"
+  },
+  "wtp": {
+    "lang_code": "en",
+    "project": "wikipedia",
+    "expand_timeout": 60
+  }
+}

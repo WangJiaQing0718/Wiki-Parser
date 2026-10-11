@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wikitextprocessor"
+version = "0.4.96"
+description = "Parser and expander for Wikipedia, Wiktionary etc. dump files, with Lua execution support"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Tatu Ylonen", email = "ylo@clausal.com"},
+]
+keywords = [
+    "data extraction",
+    "dictionary",
+    "lua",
+    "scribunto",
+    "wikipedia",
+    "wikitext",
+    "wiktionary",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "dateparser>=1.3.0",
+    "lupa",
+    "lxml",
+    "mediawiki_langcodes==0.2.25",
+    "psutil",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage[toml]",
+    "mypy",
+    "ruff",
+    "types-dateparser",
+    "types-lxml",
+    "types-psutil",
+    "types-requests",
+]
+
+[project.urls]
+homepage = "https://github.com/tatuylonen/wikitextprocessor"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.package-data]
+wikitextprocessor = [
+    "lua/*.lua",
+    "lua/mediawiki-extensions-Scribunto/COPYING",
+    "lua/mediawiki-extensions-Scribunto/includes/Engines/LuaCommon/lualib/*.lua",
+    "lua/mediawiki-extensions-Scribunto/includes/Engines/LuaCommon/lualib/ustring/*.lua",
+    "lua/mediawiki-extensions-Scribunto/includes/Engines/LuaCommon/lualib/luabit/*.lua",
+    "data/*/*",
+    "py.typed",
+]
+
+[tool.mypy]
+# Have to use $MYPY_CONFIG_FILE_DIR because by default mypy will scan for
+# config files in the directory it is run from, and if the editor (like
+# helix) has as its directory location, say, 'src/wikitextprocessor' mypy
+# will try to find it only there, even if it has loaded configs from
+# pyproject.toml.
+# If you run mypy on the command line, do so from the root directory of
+# the repo, where this config file is, or use `mypy --config-file ...`
+mypy_path = "$MYPY_CONFIG_FILE_DIR/typestubs"
+python_version = "3.10"
+
+[tool.coverage.run]
+branch = true
+omit = ["tests/*"]
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle error
+    "F",  # Pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warning
+]
+
+[tool.typos]
+files.extend-exclude = [
+    "src/wikitextprocessor/lua/mediawiki-extensions-Scribunto",
+    "src/wikitextprocessor/data",
+    "tests",
+]
+default.extend-ignore-identifiers-re = [
+    "uupper",
+]

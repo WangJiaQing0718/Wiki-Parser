@@ -1,0 +1,257 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Média",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Speciální",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": true,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Diskuse",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Komentár"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Uživatel",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Redaktor",
+      "Uživatelka"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Diskuse s uživatelem",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Diskuse s uživatelkou",
+      "Diskusia s redaktorom",
+      "Komentár k redaktorovi",
+      "Uživatel diskuse",
+      "Uživatelka diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wikislovník",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WS",
+      "WT",
+      "Wiktionary"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Diskuse k Wikislovníku",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Komentár k Wikipédii",
+      "Wikislovník diskuse",
+      "Wiktionary diskuse",
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Soubor",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image",
+      "Obrázok"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Diskuse k souboru",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Diskusia k obrázku",
+      "Image talk",
+      "Komentár k obrázku",
+      "Soubor diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "Diskuse k MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Komentár k MediaWiki",
+      "MediaWiki diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Šablona",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Diskuse k šabloně",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Šablona diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Nápověda",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Diskuse k nápovědě",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Nápověda diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Kategorie",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Diskuse ke kategorii",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Kategorie diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Appendix": {
+    "id": 100,
+    "name": "Příloha",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Appendix talk": {
+    "id": 101,
+    "name": "Diskuse k příloze",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Příloha diskuse"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Modul",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Diskuse k modulu",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}

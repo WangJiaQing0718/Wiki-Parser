@@ -1,0 +1,271 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Rakitra",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Média"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Manokana",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Dinika",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discuter"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Mpikambana",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Utilisateur"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Dinika amin'ny mpikambana",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discussion Utilisateur"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Wiktionary",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WT"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Dinika amin'ny Wiktionary",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discussion Wiktionary",
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Sary",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Dinika amin'ny sary",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discussion Fichier",
+      "Discussion Image",
+      "Image talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "Dinika amin'ny MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discussion MediaWiki"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Endrika",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Modèle"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Dinika amin'ny endrika",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discussion Modèle"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Fanoroana",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Aide",
+      "Fanampiana"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Dinika amin'ny fanoroana",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Dinika amin'ny fanampiana",
+      "Discussion Aide"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Sokajy",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Catégorie"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Dinika amin'ny sokajy",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Discussion Catégorie"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Rakibolana": {
+    "id": 100,
+    "name": "Rakibolana",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Dinika amin'ny rakibolana": {
+    "id": 101,
+    "name": "Dinika amin'ny rakibolana",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Module",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Discussion module",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Event": {
+    "id": 1728,
+    "name": "Event",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Event talk": {
+    "id": 1729,
+    "name": "Event talk",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}

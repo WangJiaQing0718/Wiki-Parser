@@ -1,0 +1,315 @@
+{
+  "Media": {
+    "id": -2,
+    "name": "Медиа",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Special": {
+    "id": -1,
+    "name": "Служебная",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Main": {
+    "id": 0,
+    "name": "Main",
+    "subpages": false,
+    "content": true,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Talk": {
+    "id": 1,
+    "name": "Обсуждение",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "User": {
+    "id": 2,
+    "name": "Участник",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "U",
+      "У",
+      "Участница"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "User talk": {
+    "id": 3,
+    "name": "Обсуждение участника",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "UT",
+      "ОУ",
+      "Обсуждение участницы"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Project": {
+    "id": 4,
+    "name": "Викисловарь",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "WT",
+      "Wiktionary",
+      "ВС"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Project talk": {
+    "id": 5,
+    "name": "Обсуждение Викисловаря",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Wiktionary talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "File": {
+    "id": 6,
+    "name": "Файл",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "Image",
+      "Изображение"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "File talk": {
+    "id": 7,
+    "name": "Обсуждение файла",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Image talk",
+      "Обсуждение изображения"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "MediaWiki": {
+    "id": 8,
+    "name": "MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "MediaWiki talk": {
+    "id": 9,
+    "name": "Обсуждение MediaWiki",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Template": {
+    "id": 10,
+    "name": "Шаблон",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "T",
+      "Ш"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Template talk": {
+    "id": 11,
+    "name": "Обсуждение шаблона",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Help": {
+    "id": 12,
+    "name": "Справка",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "Help talk": {
+    "id": 13,
+    "name": "Обсуждение справки",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Category": {
+    "id": 14,
+    "name": "Категория",
+    "subpages": false,
+    "content": false,
+    "aliases": [
+      "К"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Category talk": {
+    "id": 15,
+    "name": "Обсуждение категории",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Приложение": {
+    "id": 100,
+    "name": "Приложение",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Appendix"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Обсуждение приложения": {
+    "id": 101,
+    "name": "Обсуждение приложения",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Appendix talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Конкорданс": {
+    "id": 102,
+    "name": "Конкорданс",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Concordance"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Обсуждение конкорданса": {
+    "id": 103,
+    "name": "Обсуждение конкорданса",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Concordance talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Индекс": {
+    "id": 104,
+    "name": "Индекс",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Index"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Обсуждение индекса": {
+    "id": 105,
+    "name": "Обсуждение индекса",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Index talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "Рифмы": {
+    "id": 106,
+    "name": "Рифмы",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Rhymes"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Обсуждение рифм": {
+    "id": 107,
+    "name": "Обсуждение рифм",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "Rhymes talk"
+    ],
+    "issubject": false,
+    "istalk": true
+  },
+  "TimedText": {
+    "id": 710,
+    "name": "TimedText",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": true,
+    "istalk": false
+  },
+  "TimedText talk": {
+    "id": 711,
+    "name": "TimedText talk",
+    "subpages": false,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  },
+  "Module": {
+    "id": 828,
+    "name": "Модуль",
+    "subpages": true,
+    "content": false,
+    "aliases": [
+      "М"
+    ],
+    "issubject": true,
+    "istalk": false
+  },
+  "Module talk": {
+    "id": 829,
+    "name": "Обсуждение модуля",
+    "subpages": true,
+    "content": false,
+    "aliases": [],
+    "issubject": false,
+    "istalk": true
+  }
+}
