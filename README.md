@@ -32,7 +32,7 @@ Wiki-Parser/
 python -m pip install -r requirements.txt
 ```
 
-`requirements.txt` 以 `-e ./wikitextprocessor` 安装本地 WTP 包；若环境无法下载构建依赖，改用 `python -m pip install --no-build-isolation -r requirements.txt`。
+`requirements.txt` 通过 `-e ./wikitextprocessor` 安装本地 WTP 包；若无法下载其构建依赖，请先在当前环境安装所需构建依赖，再运行 `python -m pip install --no-build-isolation -r requirements.txt`。
 
 ## 2、WTP 数据库构建
 
