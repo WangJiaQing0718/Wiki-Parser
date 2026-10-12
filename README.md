@@ -6,7 +6,8 @@
 
 ```text
 Wiki-Parser/
-├── WikiData/                         # Wikipedia XML 转储、WTP SQLite 数据库及建库脚本
+├── WikiData/                         # Wikipedia XML 转储与 WTP SQLite 数据库
+│   └── build_wtp_database.py         # 从 XML 转储构建或复用 WTP SQLite 数据库
 ├── Wikipedia-Parser-dev/             # 解析器入口、流水线、基准脚本和运行日志
 │   ├── pipeline/                     # 配置、读取、调度和内容抽取模块
 │   ├── bench/                        # 性能基准脚本
